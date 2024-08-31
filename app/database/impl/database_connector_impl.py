@@ -27,4 +27,4 @@ class DatabaseConnectorImpl(DatabaseConnector):
 
     def get_session(self) -> Session:
         with Session(self.engine) as session:
-            yield session
+            return session
