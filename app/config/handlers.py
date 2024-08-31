@@ -29,8 +29,8 @@ def get_exception_handlers():
         if func.__name__ == 'get_exception_handlers':
             continue
         params = list(inspect.signature(func).parameters.values())
-        if len(params) == 2:
+        if len(params) >= 2:
             exc_type = params[1].annotation
-            if exc_type != inspect.Parameter.empty:
+            if isinstance(exc_type, type) and issubclass(exc_type, Exception):
                 exception_handlers.append((exc_type, func))
     return exception_handlers
