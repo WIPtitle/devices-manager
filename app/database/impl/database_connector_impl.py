@@ -1,7 +1,7 @@
 import json
 import os
 
-from sqlmodel import Session, create_engine
+from sqlmodel import Session, create_engine, SQLModel
 
 from app.database.database_connector import DatabaseConnector
 
@@ -21,10 +21,14 @@ class DatabaseConnectorImpl(DatabaseConnector):
         credentials_file = os.getenv('PG_CREDENTIALS_FILE')
         credentials = read_pg_credentials(credentials_file)
 
+        self.session_instance = None
         self.engine = create_engine(
             f"postgresql://{credentials['POSTGRES_USER']}:{credentials['POSTGRES_PASSWORD']}@db:5432/{credentials['POSTGRES_DB']}",
             echo=True)
 
+        SQLModel.metadata.create_all(self.engine)
+
     def get_session(self) -> Session:
-        with Session(self.engine) as session:
-            return session
+        if self.session_instance is None:
+            self.session_instance = Session(self.engine)
+        return self.session_instance
