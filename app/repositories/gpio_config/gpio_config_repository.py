@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from app_magnetic_reeds_listener.database.database_connector import DatabaseConnector
-from app_magnetic_reeds_listener.models.gpio_config import GpioConfig
+from app.database.database_connector import DatabaseConnector
+from app.models.gpio_config import GpioConfig
 
 
 class GpioConfigRepository(ABC):

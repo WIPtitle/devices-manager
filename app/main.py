@@ -2,9 +2,9 @@ from typing import List
 
 from fastapi import FastAPI
 
-from app_magnetic_reeds_listener.config.handlers import get_exception_handlers
-from app_magnetic_reeds_listener.routers.impl.gpio_config_router import GpioConfigRouter
-from app_magnetic_reeds_listener.routers.router_wrapper import RouterWrapper
+from app.config.handlers import get_exception_handlers
+from app.routers.impl.gpio_config_router import GpioConfigRouter
+from app.routers.router_wrapper import RouterWrapper
 
 
 exception_handlers = get_exception_handlers()

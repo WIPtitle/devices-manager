@@ -1,9 +1,9 @@
 from fastapi import HTTPException
 
-from app_magnetic_reeds_listener.config.bindings import inject
-from app_magnetic_reeds_listener.routers.router_wrapper import RouterWrapper
-from app_magnetic_reeds_listener.services.gpio_config.gpio_config_service import GpioConfigService
-from app_magnetic_reeds_listener.models.gpio_config import GpioConfig
+from app.config.bindings import inject
+from app.routers.router_wrapper import RouterWrapper
+from app.services.gpio_config.gpio_config_service import GpioConfigService
+from app.models.gpio_config import GpioConfig
 
 
 class GpioConfigRouter(RouterWrapper):

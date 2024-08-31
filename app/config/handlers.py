@@ -1,8 +1,8 @@
 from fastapi.responses import JSONResponse
 from fastapi import Request
 
-from app_magnetic_reeds_listener.exceptions.BadRequestException import BadRequestException
-from app_magnetic_reeds_listener.exceptions.NotFoundException import NotFoundException
+from app.exceptions.BadRequestException import BadRequestException
+from app.exceptions.NotFoundException import NotFoundException
 
 
 async def not_found_exception_handler(request: Request, exc: NotFoundException):

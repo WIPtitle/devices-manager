@@ -2,9 +2,9 @@ from typing import Optional
 
 from sqlmodel import select
 
-from app_magnetic_reeds_listener.database.database_connector import DatabaseConnector
-from app_magnetic_reeds_listener.models.gpio_config import GpioConfig
-from app_magnetic_reeds_listener.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
+from app.database.database_connector import DatabaseConnector
+from app.models.gpio_config import GpioConfig
+from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
 
 
 class GpioConfigRepositoryImpl(GpioConfigRepository):
