@@ -10,12 +10,8 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class DatabaseConnectorImpl(DatabaseConnector):
+    _instance = None
     def get_db(self) -> Session:
-
-        db = SessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-
-        return None
+        if self._instance is None:
+            self._instance = SessionLocal()
+        return self._instance
