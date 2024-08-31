@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from typing import Optional
+
 from app.models.gpio_config import GpioConfig
 from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
 
@@ -9,17 +11,17 @@ class GpioConfigService(ABC):
         pass
 
     @abstractmethod
-    def get_gpio_config(self, gpio_config_id: int) -> GpioConfig:
+    def get_by_id(self, gpio_config_id: int) -> Optional[GpioConfig]:
         pass
 
     @abstractmethod
-    def create_gpio_config(self, gpio_config_id: int, value: int) -> GpioConfig:
+    def create(self, gpio_config: GpioConfig) -> GpioConfig:
         pass
 
     @abstractmethod
-    def update_gpio_config(self, gpio_config_id: int, value: int) -> GpioConfig:
+    def update(self, gpio_config: GpioConfig) -> Optional[GpioConfig]:
         pass
 
     @abstractmethod
-    def delete_gpio_config(self, gpio_config_id: int) -> GpioConfig:
+    def delete_by_id(self, gpio_config_id: int) -> GpioConfig:
         pass

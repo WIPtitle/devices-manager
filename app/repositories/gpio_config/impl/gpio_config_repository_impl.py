@@ -1,3 +1,7 @@
+from typing import Optional
+
+from sqlmodel import select
+
 from app.database.database_connector import DatabaseConnector
 from app.models.gpio_config import GpioConfig
 from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
@@ -7,29 +11,27 @@ class GpioConfigRepositoryImpl(GpioConfigRepository):
     def __init__(self, database_connector: DatabaseConnector):
         self.database_connector = database_connector
 
-    def get_gpio_config(self, gpio_config_id: int):
-        return self.database_connector.get_db().query(GpioConfig).filter(GpioConfig.id == gpio_config_id).first()
+    def find_by_id(self, gpio_config_id: int) -> Optional[GpioConfig]:
+        statement = select(GpioConfig).where(GpioConfig.id == gpio_config_id)
+        return self.database_connector.get_session().exec(statement).first()
 
-    def create_gpio_config(self, gpio_config_id: int, value: int):
-        db_gpio_config = GpioConfig(id=gpio_config_id, default_value_when_closed=value)
-        self.database_connector.get_db().add(db_gpio_config)
-        self.database_connector.get_db().commit()
-        self.database_connector.get_db().refresh(db_gpio_config)
-        return db_gpio_config
+    def create(self, gpio_config: GpioConfig) -> GpioConfig:
+        self.database_connector.get_session().add(gpio_config)
+        self.database_connector.get_session().commit()
+        self.database_connector.get_session().refresh(gpio_config)
+        return gpio_config
 
-    def update_gpio_config(self, gpio_config_id: int, value: int):
-        db_gpio_config = self.get_gpio_config(gpio_config_id)
-        if db_gpio_config:
-            db_gpio_config.value = value
-            self.database_connector.get_db().commit()
-            self.database_connector.get_db().refresh(db_gpio_config)
-            return db_gpio_config
-        return None
+    def update(self, gpio_config: GpioConfig) -> Optional[GpioConfig]:
+        gpio_config_db = self.find_by_id(gpio_config.id)
+        if gpio_config_db:
+            gpio_config_db.default_value_when_closed = gpio_config.default_value_when_closed
+            self.database_connector.get_session().commit()
+            self.database_connector.get_session().refresh(gpio_config_db)
+        return gpio_config_db
 
-    def delete_gpio_config(self, gpio_config_id: int):
-        db_gpio_config = self.get_gpio_config(gpio_config_id)
-        if db_gpio_config:
-            self.database_connector.get_db().delete(db_gpio_config)
-            self.database_connector.get_db().commit()
-            return db_gpio_config
-        return None
+    def delete_by_id(self, gpio_config_id: int):
+        gpio_config = self.find_by_id(gpio_config_id)
+        if gpio_config:
+            self.database_connector.get_session().delete(gpio_config)
+            self.database_connector.get_session().commit()
+        return gpio_config
