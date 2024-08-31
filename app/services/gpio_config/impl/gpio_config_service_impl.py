@@ -1,4 +1,4 @@
-from app.models.config.gpio_config import GpioConfig
+from app.models.gpio_config import GpioConfig
 from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
 from app.services.gpio_config.gpio_config_service import GpioConfigService
 

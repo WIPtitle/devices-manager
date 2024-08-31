@@ -1,26 +1,42 @@
-from dependency_injector import containers, providers
+from functools import wraps
+from typing import Callable, get_type_hints
 
-import app as app_package
+from fastapi import Depends
+
 from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
 from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
 from app.repositories.gpio_config.impl.gpio_config_repository_impl import GpioConfigRepositoryImpl
 from app.services.gpio_config.gpio_config_service import GpioConfigService
 from app.services.gpio_config.impl.gpio_config_service_impl import GpioConfigServiceImpl
-from app.utils.modules_discover import discover_all_modules
 
 
-class Bindings(containers.DeclarativeContainer):
-    wiring_config = containers.WiringConfiguration(
-        modules=discover_all_modules(app_package)
-    )
+bindings = { }
 
-    database_connector_instance = providers.Singleton(DatabaseConnectorImpl)
+# Create instances only one time
+database_connector = DatabaseConnectorImpl()
+gpio_config_repository = GpioConfigRepositoryImpl(database_connector=database_connector)
+gpio_config_service = GpioConfigServiceImpl(gpio_config_repository=gpio_config_repository)
 
-    gpio_config_repository_instance = providers.Singleton(GpioConfigRepositoryImpl, database_connector=database_connector_instance)
-    gpio_config_service_instance = providers.Singleton(GpioConfigServiceImpl, gpio_config_repository=gpio_config_repository_instance)
+# Put them in an interface -> instance dict so they will be used everytime a dependency is required
+bindings[DatabaseConnector] = database_connector
+bindings[GpioConfigRepository] = gpio_config_repository
+bindings[GpioConfigService] = gpio_config_service
 
-    database_connection_interface = providers.Singleton(DatabaseConnector, provided=database_connector_instance)
-    gpio_config_repository_interface = providers.Singleton(GpioConfigRepository, provided=gpio_config_repository_instance)
-    gpio_config_service_interface = providers.Singleton(GpioConfigService, provided=gpio_config_service_instance)
 
+def resolve(interface):
+    implementation = bindings[interface]
+    if implementation is None:
+        raise ValueError(f"No binding found for {interface}")
+    return implementation
+
+
+def inject(func: Callable):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        type_hints = get_type_hints(func)
+        for name, param_type in type_hints.items():
+            if param_type in bindings:
+                kwargs[name] = resolve(param_type)
+        return func(*args, **kwargs)
+    return wrapper

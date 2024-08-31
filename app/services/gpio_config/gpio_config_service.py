@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
-from app.models.config.gpio_config import GpioConfig
+from app.models.gpio_config import GpioConfig
 from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
 
 
 class GpioConfigService(ABC):
     @abstractmethod
-    def __init__(self, repository: GpioConfigRepository):
+    def __init__(self, gpio_config_repository: GpioConfigRepository):
         pass
 
     @abstractmethod

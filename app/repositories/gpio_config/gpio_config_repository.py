@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 
 from app.database.database_connector import DatabaseConnector
-from app.models.config.gpio_config import GpioConfig
+from app.models.gpio_config import GpioConfig
+
 
 class GpioConfigRepository(ABC):
     @abstractmethod
-    def __init__(self, connector: DatabaseConnector):
+    def __init__(self, database_connector: DatabaseConnector):
         pass
 
     @abstractmethod

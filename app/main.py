@@ -1,12 +1,14 @@
+from typing import List
+
 from fastapi import FastAPI
 
-from app.config.bindings import Bindings
-from app.routers.config import gpio_config_router
+from app.routers.impl.gpio_config_router import GpioConfigRouter
+from app.routers.router_wrapper import RouterWrapper
+
+routers: List[RouterWrapper] = [
+    GpioConfigRouter()
+]
 
 app = FastAPI()
-
-bindings = Bindings()
-bindings.init_resources()
-app.container = bindings
-
-app.include_router(gpio_config_router.router)
+for router in routers:
+    app.include_router(router.get_fastapi_router())

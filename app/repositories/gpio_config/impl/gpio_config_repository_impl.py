@@ -1,5 +1,5 @@
 from app.database.database_connector import DatabaseConnector
-from app.models.config.gpio_config import GpioConfig
+from app.models.gpio_config import GpioConfig
 from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
 
 
@@ -11,7 +11,7 @@ class GpioConfigRepositoryImpl(GpioConfigRepository):
         return self.database_connector.get_db().query(GpioConfig).filter(GpioConfig.id == gpio_config_id).first()
 
     def create_gpio_config(self, gpio_config_id: int, value: int):
-        db_gpio_config = GpioConfig(id=gpio_config_id, value=value)
+        db_gpio_config = GpioConfig(id=gpio_config_id, default_value_when_closed=value)
         self.database_connector.get_db().add(db_gpio_config)
         self.database_connector.get_db().commit()
         self.database_connector.get_db().refresh(db_gpio_config)
