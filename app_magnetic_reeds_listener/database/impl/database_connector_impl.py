@@ -3,7 +3,7 @@ import os
 
 from sqlmodel import Session, create_engine, SQLModel
 
-from app.database.database_connector import DatabaseConnector
+from app_magnetic_reeds_listener.database.database_connector import DatabaseConnector
 
 
 # Reads credentials from PG_CREDENTIALS_FILE env, defined inside docker-compose.

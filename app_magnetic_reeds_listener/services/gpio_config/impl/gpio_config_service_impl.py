@@ -1,9 +1,9 @@
 from typing import Optional
 
-from app.exceptions.NotFoundException import NotFoundException
-from app.models.gpio_config import GpioConfig
-from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
-from app.services.gpio_config.gpio_config_service import GpioConfigService
+from app_magnetic_reeds_listener.exceptions.NotFoundException import NotFoundException
+from app_magnetic_reeds_listener.models.gpio_config import GpioConfig
+from app_magnetic_reeds_listener.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
+from app_magnetic_reeds_listener.services.gpio_config.gpio_config_service import GpioConfigService
 
 
 class GpioConfigServiceImpl(GpioConfigService):

@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from app.models.gpio_config import GpioConfig
-from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
+from app_magnetic_reeds_listener.models.gpio_config import GpioConfig
+from app_magnetic_reeds_listener.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
 
 
 class GpioConfigService(ABC):

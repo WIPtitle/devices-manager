@@ -5,4 +5,4 @@ RUN apt-get install -y libpq-dev
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app_magnetic_reeds_listener.main:app", "--host", "0.0.0.0", "--port", "8000"]
