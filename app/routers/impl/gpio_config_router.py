@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 from app.config.bindings import inject
 from app.routers.router_wrapper import RouterWrapper
 from app.services.gpio_config.gpio_config_service import GpioConfigService
+from app.models.gpio_config import GpioConfigDto
 
 
 class GpioConfigRouter(RouterWrapper):
@@ -22,7 +23,7 @@ class GpioConfigRouter(RouterWrapper):
             return gpio_config
 
         @self.router.post("/")
-        def create_gpio_config(gpio_config_id: int, value: int):
+        def create_gpio_config(gpio_config_dto: GpioConfigDto):
             return self.gpio_config_service.create_gpio_config(gpio_config_id, value)
 
         @self.router.put("/{gpio_config_id}")
