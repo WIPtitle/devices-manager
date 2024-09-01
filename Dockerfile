@@ -1,7 +1,10 @@
 FROM python:3.10
+WORKDIR /sdk
+RUN git clone https://github.com/WIPtitle/rabbitmq-sdk.git
+RUN pip install /sdk/rabbitmq-sdk
 WORKDIR /app
 COPY requirements.txt .
-RUN apt-get install -y libpq-dev
+RUN apt-get update && apt-get install -y libpq-dev git
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 EXPOSE 8000

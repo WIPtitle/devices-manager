@@ -1,5 +1,10 @@
+import os
 from functools import wraps
 from typing import Callable, get_type_hints
+
+from rabbitmq_sdk.config.service import Service
+from rabbitmq_sdk.rabbitmq_client import RabbitMQClient
+from rabbitmq_sdk.rabbitmq_client_impl import RabbitMQClientImpl
 
 from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
@@ -7,18 +12,29 @@ from app.repositories.reed.reed_repository import ReedRepository
 from app.repositories.reed.impl.reed_repository_impl import ReedRepositoryImpl
 from app.services.reed.reed_service import ReedService
 from app.services.reed.impl.reed_service_impl import ReedServiceImpl
+from app.utils.read_credentials import read_credentials
 
 bindings = { }
 
 # Create instances only one time
 database_connector = DatabaseConnectorImpl()
 reed_repository = ReedRepositoryImpl(database_connector=database_connector)
-reed_service = ReedServiceImpl(reed_repository=reed_repository)
+
+rabbit_credentials = read_credentials(os.getenv('RBBT_CREDENTIALS_FILE'))
+rabbitmq_client = RabbitMQClientImpl.from_config(
+    host='rabbitmq', # using container name as host instead of ip
+    port=5672,
+    username=rabbit_credentials['RABBITMQ_USER'],
+    password=rabbit_credentials['RABBITMQ_PASSWORD']
+).with_current_service(Service.MAGNETIC_REEDS_LISTENER)
+
+reed_service = ReedServiceImpl(reed_repository=reed_repository, rabbitmq_client=rabbitmq_client)
 
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
 bindings[DatabaseConnector] = database_connector
 bindings[ReedRepository] = reed_repository
 bindings[ReedService] = reed_service
+bindings[RabbitMQClient] = rabbitmq_client
 
 
 def resolve(interface):

@@ -7,10 +7,6 @@ from app.models.reed import Reed
 
 class ReedRepository(ABC):
     @abstractmethod
-    def __init__(self, database_connector: DatabaseConnector):
-        pass
-
-    @abstractmethod
     def find_by_gpio_pin_number(self, gpio_pin_number: int) -> Optional[Reed]:
         pass
 
