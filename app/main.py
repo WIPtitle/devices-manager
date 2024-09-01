@@ -6,7 +6,6 @@ from app.config.handlers import get_exception_handlers
 from app.routers.impl.gpio_config_router import GpioConfigRouter
 from app.routers.router_wrapper import RouterWrapper
 
-
 exception_handlers = get_exception_handlers()
 routers: List[RouterWrapper] = [
     GpioConfigRouter()
