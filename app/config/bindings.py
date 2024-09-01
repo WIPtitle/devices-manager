@@ -3,22 +3,22 @@ from typing import Callable, get_type_hints
 
 from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
-from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
-from app.repositories.gpio_config.impl.gpio_config_repository_impl import GpioConfigRepositoryImpl
-from app.services.gpio_config.gpio_config_service import GpioConfigService
-from app.services.gpio_config.impl.gpio_config_service_impl import GpioConfigServiceImpl
+from app.repositories.reed.reed_repository import ReedRepository
+from app.repositories.reed.impl.reed_repository_impl import ReedRepositoryImpl
+from app.services.reed.reed_service import ReedService
+from app.services.reed.impl.reed_service_impl import ReedServiceImpl
 
 bindings = { }
 
 # Create instances only one time
 database_connector = DatabaseConnectorImpl()
-gpio_config_repository = GpioConfigRepositoryImpl(database_connector=database_connector)
-gpio_config_service = GpioConfigServiceImpl(gpio_config_repository=gpio_config_repository)
+reed_repository = ReedRepositoryImpl(database_connector=database_connector)
+reed_service = ReedServiceImpl(reed_repository=reed_repository)
 
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
 bindings[DatabaseConnector] = database_connector
-bindings[GpioConfigRepository] = gpio_config_repository
-bindings[GpioConfigService] = gpio_config_service
+bindings[ReedRepository] = reed_repository
+bindings[ReedService] = reed_service
 
 
 def resolve(interface):
