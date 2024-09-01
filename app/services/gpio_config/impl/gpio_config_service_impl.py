@@ -1,6 +1,6 @@
 from typing import Optional
 
-from app.exceptions.NotFoundException import NotFoundException
+from app.exceptions.not_found_exception import NotFoundException
 from app.models.gpio_config import GpioConfig
 from app.repositories.gpio_config.gpio_config_repository import GpioConfigRepository
 from app.services.gpio_config.gpio_config_service import GpioConfigService

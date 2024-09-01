@@ -1,9 +1,7 @@
-from fastapi import HTTPException
-
 from app.config.bindings import inject
+from app.models.gpio_config import GpioConfig
 from app.routers.router_wrapper import RouterWrapper
 from app.services.gpio_config.gpio_config_service import GpioConfigService
-from app.models.gpio_config import GpioConfig
 
 
 class GpioConfigRouter(RouterWrapper):
@@ -17,26 +15,18 @@ class GpioConfigRouter(RouterWrapper):
     def _define_routes(self):
         @self.router.get("/{gpio_config_id}")
         def read_gpio_config(gpio_config_id: int):
-            gpio_config = self.gpio_config_service.get_by_id(gpio_config_id)
-            if gpio_config is None:
-                raise HTTPException(status_code=404, detail="GpioConfig not found")
-            return gpio_config
+            return self.gpio_config_service.get_by_id(gpio_config_id)
 
-        @self.router.post("/")
+        @self.router.post("/", operation_id="post_slash")
+        @self.router.post("", operation_id="post_without_slash")
         def create_gpio_config(gpio_config: GpioConfig):
-            gpio_config = self.gpio_config_service.create(gpio_config)
-            return gpio_config
+            return self.gpio_config_service.create(gpio_config)
 
-        @self.router.put("/")
+        @self.router.put("/", operation_id="put_slash")
+        @self.router.put("", operation_id="put_without_slash")
         def update_gpio_config(gpio_config: GpioConfig):
-            gpio_config = self.gpio_config_service.update(gpio_config)
-            if gpio_config is None:
-                raise HTTPException(status_code=404, detail="GpioConfig not found")
-            return gpio_config
+            return self.gpio_config_service.update(gpio_config)
 
         @self.router.delete("/{gpio_config_id}")
         def delete_gpio_config(gpio_config_id: int):
-            gpio_config = self.gpio_config_service.delete_by_id(gpio_config_id)
-            if gpio_config is None:
-                raise HTTPException(status_code=404, detail="GpioConfig not found")
-            return gpio_config
+            return self.gpio_config_service.delete_by_id(gpio_config_id)
