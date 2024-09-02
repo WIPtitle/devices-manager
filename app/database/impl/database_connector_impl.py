@@ -7,13 +7,13 @@ from utils.read_credentials import read_credentials
 
 class DatabaseConnectorImpl(DatabaseConnector):
     def __init__(self):
+        database_hostname = os.getenv('DATABASE_HOSTNAME')
         credentials_file = os.getenv('PG_CREDENTIALS_FILE')
         credentials = read_credentials(credentials_file)
-        service_name = "db"
 
         self.session_instance = None
         self.engine = create_engine(
-            f"postgresql://{credentials['POSTGRES_USER']}:{credentials['POSTGRES_PASSWORD']}@{service_name}:5432/{credentials['POSTGRES_DB']}",
+            f"postgresql://{credentials['POSTGRES_USER']}:{credentials['POSTGRES_PASSWORD']}@{database_hostname}:5432/{credentials['POSTGRES_DB']}",
             echo=True)
 
         SQLModel.metadata.create_all(self.engine)
