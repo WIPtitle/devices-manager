@@ -4,7 +4,7 @@ from typing import Callable, get_type_hints
 
 from rabbitmq_sdk.client.impl.rabbitmq_client_impl import RabbitMQClientImpl
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
-from rabbitmq_sdk.config.service import Service
+from rabbitmq_sdk.enums.service import Service
 
 from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
