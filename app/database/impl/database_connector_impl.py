@@ -2,7 +2,7 @@ import os
 
 from sqlmodel import Session, create_engine, SQLModel
 from app.database.database_connector import DatabaseConnector
-from utils.read_credentials import read_credentials
+from app.utils.read_credentials import read_credentials
 
 
 class DatabaseConnectorImpl(DatabaseConnector):
