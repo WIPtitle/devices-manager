@@ -8,11 +8,9 @@ from app.exceptions.not_found_exception import NotFoundException
 from app.models.reed import Reed
 from app.repositories.reed.reed_repository import ReedRepository
 from app.services.reed.reed_service import ReedService
-from app.config.bindings import inject
 
 
 class ReedServiceImpl(ReedService):
-    @inject
     def __init__(self, reed_repository: ReedRepository, rabbitmq_client: RabbitMQClient):
         self.reed_repository = reed_repository
         self.rabbitmq_client = rabbitmq_client
