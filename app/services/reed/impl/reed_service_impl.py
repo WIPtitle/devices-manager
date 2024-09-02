@@ -1,8 +1,8 @@
 from typing import Optional
 
+from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.event.impl.magnetic_reeds_listener.enums.status import Status
 from rabbitmq_sdk.event.impl.magnetic_reeds_listener.reed_changed_value import ReedChangedValue
-from rabbitmq_sdk.rabbitmq_client import RabbitMQClient
 
 from app.exceptions.not_found_exception import NotFoundException
 from app.models.reed import Reed
