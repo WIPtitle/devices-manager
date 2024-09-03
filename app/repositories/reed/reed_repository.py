@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Sequence
 
-from app.database.database_connector import DatabaseConnector
 from app.models.reed import Reed
 
 
@@ -20,4 +19,8 @@ class ReedRepository(ABC):
 
     @abstractmethod
     def delete_by_gpio_pin_number(self, gpio_pin_number: int) -> Reed:
+        pass
+
+    @abstractmethod
+    def find_all(self) -> Sequence[Reed]:
         pass

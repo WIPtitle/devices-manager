@@ -2,7 +2,10 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from app.exceptions.bad_request_exception import BadRequestException
+from app.exceptions.internal_error_exception import InternalErrorException
 from app.exceptions.not_found_exception import NotFoundException
+from app.exceptions.unupdateable_data_exception import UnupdateableDataException
+from app.exceptions.validation_exception import ValidationException
 
 
 async def not_found_exception_handler(request: Request, exc: NotFoundException):
@@ -12,6 +15,24 @@ async def not_found_exception_handler(request: Request, exc: NotFoundException):
     )
 
 async def bad_request_exception_handler(request: Request, exc: BadRequestException):
+    return JSONResponse(
+        status_code=400,
+        content={"message": exc.message},
+    )
+
+async def unupdateable_data_exception_handler(request: Request, exc: UnupdateableDataException):
+    return JSONResponse(
+        status_code=409,
+        content={"message": exc.message},
+    )
+
+async def internal_error_exception_handler(request: Request, exc: InternalErrorException):
+    return JSONResponse(
+        status_code=500,
+        content={"message": exc.message},
+    )
+
+async def validation_exception_handler(request: Request, exc: ValidationException):
     return JSONResponse(
         status_code=400,
         content={"message": exc.message},

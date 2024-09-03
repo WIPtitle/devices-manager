@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Sequence
 
 from sqlmodel import select
 
@@ -39,3 +39,8 @@ class ReedRepositoryImpl(ReedRepository):
             self.database_connector.get_session().delete(reed)
             self.database_connector.get_session().commit()
         return reed
+
+
+    def find_all(self) -> Sequence[Reed]:
+        statement = select(Reed)
+        return self.database_connector.get_session().exec(statement).all()
