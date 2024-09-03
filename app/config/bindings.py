@@ -28,7 +28,7 @@ rabbitmq_client = RabbitMQClientImpl.from_config(
     password=rabbit_credentials['RABBITMQ_PASSWORD']
 ).with_current_service(Service.MAGNETIC_REEDS_LISTENER)
 
-reed_service = ReedServiceImpl(reed_repository=reed_repository, rabbitmq_client=rabbitmq_client)
+reed_service = ReedServiceImpl(reed_repository=reed_repository)
 
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
 bindings[DatabaseConnector] = database_connector

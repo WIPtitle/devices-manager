@@ -11,15 +11,18 @@ class ReedRepositoryImpl(ReedRepository):
     def __init__(self, database_connector: DatabaseConnector):
         self.database_connector = database_connector
 
+
     def find_by_gpio_pin_number(self, reed_gpio_pin_number: int) -> Optional[Reed]:
         statement = select(Reed).where(Reed.gpio_pin_number == reed_gpio_pin_number)
         return self.database_connector.get_session().exec(statement).first()
+
 
     def create(self, reed: Reed) -> Reed:
         self.database_connector.get_session().add(reed)
         self.database_connector.get_session().commit()
         self.database_connector.get_session().refresh(reed)
         return reed
+
 
     def update(self, reed: Reed) -> Optional[Reed]:
         reed_db = self.find_by_gpio_pin_number(reed.gpio_pin_number)
@@ -28,6 +31,7 @@ class ReedRepositoryImpl(ReedRepository):
             self.database_connector.get_session().commit()
             self.database_connector.get_session().refresh(reed_db)
         return reed_db
+
 
     def delete_by_gpio_pin_number(self, reed_gpio_pin_number: int):
         reed = self.find_by_gpio_pin_number(reed_gpio_pin_number)
