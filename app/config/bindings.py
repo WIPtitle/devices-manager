@@ -8,6 +8,8 @@ from rabbitmq_sdk.enums.service import Service
 
 from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
+from app.jobs.impl.reeds_listener_impl import ReedsListenerImpl
+from app.jobs.reeds_listener import ReedsListener
 from app.repositories.reed.reed_repository import ReedRepository
 from app.repositories.reed.impl.reed_repository_impl import ReedRepositoryImpl
 from app.services.reed.reed_service import ReedService
@@ -18,7 +20,6 @@ bindings = { }
 
 # Create instances only one time
 database_connector = DatabaseConnectorImpl()
-reed_repository = ReedRepositoryImpl(database_connector=database_connector)
 
 rabbit_credentials = read_credentials(os.getenv('RBBT_CREDENTIALS_FILE'))
 rabbitmq_client = RabbitMQClientImpl.from_config(
@@ -28,13 +29,19 @@ rabbitmq_client = RabbitMQClientImpl.from_config(
     password=rabbit_credentials['RABBITMQ_PASSWORD']
 ).with_current_service(Service.MAGNETIC_REEDS_LISTENER)
 
-reed_service = ReedServiceImpl(reed_repository=reed_repository)
+reeds_listener = ReedsListenerImpl()
+
+reed_repository = ReedRepositoryImpl(database_connector=database_connector)
+reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener)
 
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
 bindings[DatabaseConnector] = database_connector
+bindings[RabbitMQClient] = rabbitmq_client
+
+bindings[ReedsListener] = reeds_listener
+
 bindings[ReedRepository] = reed_repository
 bindings[ReedService] = reed_service
-bindings[RabbitMQClient] = rabbitmq_client
 
 
 def resolve(interface):

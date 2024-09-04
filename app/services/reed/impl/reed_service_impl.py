@@ -4,6 +4,7 @@ from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.internal_error_exception import InternalErrorException
 from app.exceptions.not_found_exception import NotFoundException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
+from app.jobs.reeds_listener import ReedsListener
 from app.models.enums.reed_status import ReedStatus
 from app.models.reed import Reed
 from app.repositories.reed.reed_repository import ReedRepository
@@ -11,8 +12,9 @@ from app.services.reed.reed_service import ReedService
 
 
 class ReedServiceImpl(ReedService):
-    def __init__(self, reed_repository: ReedRepository):
+    def __init__(self, reed_repository: ReedRepository, reeds_listener: ReedsListener):
         self.reed_repository = reed_repository
+        self.reeds_listener = reeds_listener
 
 
     def get_by_id(self, gpio_pin_number: int) -> Reed:
@@ -52,7 +54,9 @@ class ReedServiceImpl(ReedService):
 
 
     def get_status_by_id(self, gpio_pin_number: int) -> ReedStatus:
-        # TODO this will be fun
-        return ReedStatus.CLOSED
+        reed = self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
+        if reed is None:
+            raise NotFoundException("Reed was not found")
+        return self.reeds_listener.get_status_by_reed(reed)
 
 
