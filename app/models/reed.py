@@ -7,6 +7,7 @@ class Reed(SQLModel, table=True):
     gpio_pin_number: int = Field(primary_key=True)
     default_value_when_closed: GpioValue
 
+
     def __hash__(self):
         return id(self)
 

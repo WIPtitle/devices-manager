@@ -1,8 +1,5 @@
-from typing import Optional, Sequence
+from typing import Sequence
 
-from app.exceptions.bad_request_exception import BadRequestException
-from app.exceptions.internal_error_exception import InternalErrorException
-from app.exceptions.not_found_exception import NotFoundException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.jobs.reeds_listener import ReedsListener
 from app.models.enums.reed_status import ReedStatus
@@ -18,41 +15,26 @@ class ReedServiceImpl(ReedService):
 
 
     def get_by_id(self, gpio_pin_number: int) -> Reed:
-        reed: Optional[Reed] = self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
-        if reed is None:
-            raise NotFoundException("Reed was not found")
-        return reed
+        return self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
 
 
     def create(self, reed: Reed) -> Reed:
-        db_reed = self.reed_repository.find_by_gpio_pin_number(reed.gpio_pin_number)
-        if db_reed is not None:
-            raise BadRequestException("Reed already exists")
         reed = self.reed_repository.create(reed)
-
         self.reeds_listener.add_reed(reed)
         return reed
 
 
     def update(self, gpio_pin_number: int, reed: Reed) -> Reed:
-        reed = self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
-        if reed is None:
-            raise NotFoundException("Reed was not found")
-
         if reed.gpio_pin_number is not gpio_pin_number:
             raise UnupdateableDataException("Can't update gpio_pin_number")
 
         reed = self.reed_repository.update(reed)
-        if reed is None:
-            raise InternalErrorException("Gpio config can't be updated")
-
         self.reeds_listener.update_reed(reed)
         return reed
 
 
     def delete_by_id(self, gpio_pin_number: int) -> Reed:
         reed = self.reed_repository.delete_by_gpio_pin_number(gpio_pin_number)
-
         self.reeds_listener.remove_reed(reed)
         return reed
 
@@ -63,8 +45,4 @@ class ReedServiceImpl(ReedService):
 
     def get_status_by_id(self, gpio_pin_number: int) -> ReedStatus:
         reed = self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
-        if reed is None:
-            raise NotFoundException("Reed was not found")
         return self.reeds_listener.get_status_by_reed(reed)
-
-

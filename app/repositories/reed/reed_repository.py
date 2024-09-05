@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence
+from typing import Sequence
 
 from app.models.reed import Reed
 
 
 class ReedRepository(ABC):
     @abstractmethod
-    def find_by_gpio_pin_number(self, gpio_pin_number: int) -> Optional[Reed]:
+    def find_by_gpio_pin_number(self, gpio_pin_number: int) -> Reed:
         pass
 
     @abstractmethod
@@ -14,7 +14,7 @@ class ReedRepository(ABC):
         pass
 
     @abstractmethod
-    def update(self, reed: Reed) -> Optional[Reed]:
+    def update(self, reed: Reed) -> Reed:
         pass
 
     @abstractmethod

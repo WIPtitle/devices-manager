@@ -44,5 +44,5 @@ class ReedRouter(RouterWrapper):
 
         @self.router.get("/{gpio_pin_number}/status")
         def get_reed_status_by_gpio_pin_number(gpio_pin_number: int) -> ReedStatus:
-            return self.reed_service.get_status_by_id(gpio_pin_number)
+            return self.reed_service.get_status_by_id(gpio_pin_number).to_dict()
 
