@@ -14,6 +14,10 @@ class ReedsListener:
         pass
 
     @abstractmethod
+    def update_reed(self, reed: Reed):
+        pass
+
+    @abstractmethod
     def remove_reed(self, reed: Reed):
         pass
 

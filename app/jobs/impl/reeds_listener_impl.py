@@ -3,6 +3,9 @@ import time
 from typing import Dict
 
 import RPi.GPIO as GPIO
+from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
+from rabbitmq_sdk.event.impl.magnetic_reeds_listener.enums.status import Status
+from rabbitmq_sdk.event.impl.magnetic_reeds_listener.reed_changed_status import ReedChangedStatus
 
 from app.exceptions.reeds_listener_exception import ReedsListenerException
 from app.jobs.reeds_listener import ReedsListener
@@ -23,8 +26,9 @@ def read_current_status_by_reed(reed: Reed) -> ReedStatus:
         return ReedStatus.OPEN
 
 
-class ReedListenerImpl(ReedsListener):
-    def __init__(self):
+class ReedsListenerImpl(ReedsListener):
+    def __init__(self, rabbitmq_client: RabbitMQClient):
+        self.rabbitmq_client = rabbitmq_client
         self.reeds_status: Dict[Reed, ReedStatus] = {}
         self.running = True
         self.thread = threading.Thread(target=self.monitor_pins)
@@ -45,6 +49,15 @@ class ReedListenerImpl(ReedsListener):
             raise ReedsListenerException(f"Reed with pin {reed.gpio_pin_number} already being monitored")
 
 
+    def update_reed(self, reed: Reed):
+        for r in list(self.reeds_status.keys()):
+            if r.gpio_pin_number == reed.gpio_pin_number:
+                self.remove_reed(r)
+                self.add_reed(reed)
+                return
+        raise ReedsListenerException(f"Reed with pin {reed.gpio_pin_number} not being monitored")
+
+
     def remove_reed(self, reed: Reed):
         if reed in self.reeds_status:
             GPIO.cleanup(reed.gpio_pin_number)
@@ -55,8 +68,7 @@ class ReedListenerImpl(ReedsListener):
 
     def get_status_by_reed(self, reed: Reed) -> ReedStatus:
         if reed in self.reeds_status:
-            status = self.reeds_status[reed]
-            return ReedStatus(reed.gpio_pin_number, status)
+            return self.reeds_status[reed]
         else:
             raise ReedsListenerException(f"Reed with pin {reed.gpio_pin_number} not being monitored")
 
@@ -66,7 +78,12 @@ class ReedListenerImpl(ReedsListener):
             for reed in self.reeds_status.keys():
                 current_status = read_current_status_by_reed(reed)
                 if current_status != self.reeds_status[reed]:
+                    # Status has changed, publish event
+                    self.rabbitmq_client.publish(
+                        ReedChangedStatus(
+                            reed.gpio_pin_number,
+                            Status.OPEN if current_status == ReedStatus.OPEN else Status.CLOSED
+                        )
+                    )
                     self.reeds_status[reed] = current_status
-                    print(f"Changed status on pin {reed.gpio_pin_number}")
-                    print(f"Status: {current_status}")
-            time.sleep(5)
+            time.sleep(1)

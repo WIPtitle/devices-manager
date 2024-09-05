@@ -29,7 +29,7 @@ rabbitmq_client = RabbitMQClientImpl.from_config(
     password=rabbit_credentials['RABBITMQ_PASSWORD']
 ).with_current_service(Service.MAGNETIC_REEDS_LISTENER)
 
-reeds_listener = ReedsListenerImpl()
+reeds_listener = ReedsListenerImpl(rabbitmq_client)
 
 reed_repository = ReedRepositoryImpl(database_connector=database_connector)
 reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener)
