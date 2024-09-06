@@ -55,3 +55,4 @@ class CamerasListenerImpl:
 
     def update_status(self, camera: Camera, status: CameraStatus):
         self.cameras_status[camera] = status
+        print(f"Changed status for camera {camera.ip}: {status.value}")
