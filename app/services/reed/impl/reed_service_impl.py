@@ -13,6 +13,10 @@ class ReedServiceImpl(ReedService):
         self.reed_repository = reed_repository
         self.reeds_listener = reeds_listener
 
+        # When service is created on app init, start listening to already saved reeds.
+        for reed in self.reed_repository.find_all():
+            self.reeds_listener.add_reed(reed)
+
 
     def get_by_pin(self, gpio_pin_number: int) -> Reed:
         return self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
