@@ -9,6 +9,7 @@ from rabbitmq_sdk.event.impl.magnetic_reeds_listener.reed_changed_status import 
 from app.exceptions.reeds_listener_exception import ReedsListenerException
 from app.jobs.reeds_listener import ReedsListener
 from app.models.enums.reed_status import ReedStatus
+from rabbitmq_sdk.event.impl.magnetic_reeds_listener.enums.reed_status import ReedStatus as RabbitReedStatus
 from app.models.reed import Reed
 
 
@@ -81,7 +82,7 @@ class ReedsListenerImpl(ReedsListener):
                     self.rabbitmq_client.publish(
                         ReedChangedStatus(
                             reed.gpio_pin_number,
-                            ReedStatus.OPEN if current_status == ReedStatus.OPEN else ReedStatus.CLOSED
+                            RabbitReedStatus.OPEN if current_status == ReedStatus.OPEN else RabbitReedStatus.CLOSED
                         )
                     )
                     self.reeds_status[reed] = current_status
