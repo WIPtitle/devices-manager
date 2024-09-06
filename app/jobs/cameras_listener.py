@@ -6,10 +6,6 @@ from app.models.enums.camera_status import CameraStatus
 
 class CamerasListener:
     @abstractmethod
-    def stop(self):
-        pass
-
-    @abstractmethod
     def add_camera(self, camera: Camera):
         pass
 

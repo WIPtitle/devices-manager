@@ -1,6 +1,7 @@
 from typing import Sequence
 
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
+from app.exceptions.validation_exception import ValidationException
 from app.jobs.cameras_listener import CamerasListener
 from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
@@ -13,12 +14,21 @@ class CameraServiceImpl(CameraService):
         self.camera_repository = camera_repository
         self.cameras_listener = cameras_listener
 
+        # When service is created on app init, start listening to already saved cameras.
+        for camera in self.camera_repository.find_all():
+            self.cameras_listener.add_camera(camera)
+
 
     def get_by_ip(self, ip: str) -> Camera:
         return self.camera_repository.find_by_ip(ip)
 
 
     def create(self, camera: Camera) -> Camera:
+        # Stop user from adding an unreachable camera.
+        # A camera can still become unreachable but prevent creating one that already is.
+        if not camera.is_reachable():
+            raise ValidationException("Camera is not reachable")
+
         camera = self.camera_repository.create(camera)
         self.cameras_listener.add_camera(camera)
         return camera

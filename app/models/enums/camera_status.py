@@ -3,7 +3,8 @@ from enum import Enum
 
 class CameraStatus(str, Enum):
     MOVEMENT_DETECTED = "MOVEMENT_DETECTED",
-    IDLE = "IDLE"
+    IDLE = "IDLE",
+    UNREACHABLE = "UNREACHABLE"
 
 
     def to_dict(self):

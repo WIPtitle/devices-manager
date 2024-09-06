@@ -3,12 +3,13 @@ from typing import Dict
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 
 from app.exceptions.cameras_listener_exception import CamerasListenerException
+from app.jobs.cameras_listener import CamerasListener
 from app.jobs.impl.camera_listener_thread import CameraListenerThread
 from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
 
 
-class CamerasListenerImpl:
+class CamerasListenerImpl(CamerasListener):
     def __init__(self, rabbitmq_client: RabbitMQClient):
         self.rabbitmq_client = rabbitmq_client
         self.cameras_status: Dict[Camera, CameraStatus] = {}
@@ -17,6 +18,7 @@ class CamerasListenerImpl:
 
     def add_camera(self, camera: Camera):
         if camera not in self.cameras_status:
+            # Set default first status to idle, listener thread will update it with the correct one once started.
             self.cameras_status[camera] = CameraStatus.IDLE
             thread = CameraListenerThread(camera, self.update_status)
             thread.start()
