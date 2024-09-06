@@ -14,7 +14,7 @@ class ReedServiceImpl(ReedService):
         self.reeds_listener = reeds_listener
 
 
-    def get_by_id(self, gpio_pin_number: int) -> Reed:
+    def get_by_pin(self, gpio_pin_number: int) -> Reed:
         return self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
 
 
@@ -33,7 +33,7 @@ class ReedServiceImpl(ReedService):
         return reed
 
 
-    def delete_by_id(self, gpio_pin_number: int) -> Reed:
+    def delete_by_pin(self, gpio_pin_number: int) -> Reed:
         reed = self.reed_repository.delete_by_gpio_pin_number(gpio_pin_number)
         self.reeds_listener.remove_reed(reed)
         return reed
@@ -43,6 +43,6 @@ class ReedServiceImpl(ReedService):
         return self.reed_repository.find_all()
 
 
-    def get_status_by_id(self, gpio_pin_number: int) -> ReedStatus:
+    def get_status_by_pin(self, gpio_pin_number: int) -> ReedStatus:
         reed = self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
         return self.reeds_listener.get_status_by_reed(reed)

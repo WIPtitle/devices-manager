@@ -7,7 +7,7 @@ from app.models.reed import Reed
 
 class ReedService(ABC):
     @abstractmethod
-    def get_by_id(self, gpio_pin_number: int) -> Reed:
+    def get_by_pin(self, gpio_pin_number: int) -> Reed:
         pass
 
     @abstractmethod
@@ -19,7 +19,7 @@ class ReedService(ABC):
         pass
 
     @abstractmethod
-    def delete_by_id(self, gpio_pin_number: int) -> Reed:
+    def delete_by_pin(self, gpio_pin_number: int) -> Reed:
         pass
 
     @abstractmethod
@@ -27,5 +27,5 @@ class ReedService(ABC):
         pass
 
     @abstractmethod
-    def get_status_by_id(self, gpio_pin_number: int) -> ReedStatus:
+    def get_status_by_pin(self, gpio_pin_number: int) -> ReedStatus:
         pass

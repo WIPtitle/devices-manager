@@ -86,4 +86,5 @@ class ReedsListenerImpl(ReedsListener):
                         )
                     )
                     self.reeds_status[reed] = current_status
+                    print(f"Status has changed for reed on gpio {reed.gpio_pin_number}: {current_status.value}")
             time.sleep(1)

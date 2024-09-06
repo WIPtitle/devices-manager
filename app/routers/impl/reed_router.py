@@ -18,7 +18,7 @@ class ReedRouter(RouterWrapper):
         # Basic CRUD
         @self.router.get("/{gpio_pin_number}")
         def get_reed_by_gpio_pin_number(gpio_pin_number: int) -> Reed:
-            return self.reed_service.get_by_id(gpio_pin_number)
+            return self.reed_service.get_by_pin(gpio_pin_number)
 
 
         @self.router.post("/", operation_id="create_slash")
@@ -34,7 +34,7 @@ class ReedRouter(RouterWrapper):
 
         @self.router.delete("/{gpio_pin_number}")
         def delete_reed_by_gpio_pin_number(gpio_pin_number: int) -> Reed:
-            return self.reed_service.delete_by_id(gpio_pin_number)
+            return self.reed_service.delete_by_pin(gpio_pin_number)
 
         # Other endpoints
         @self.router.get("/")
@@ -43,6 +43,6 @@ class ReedRouter(RouterWrapper):
 
 
         @self.router.get("/{gpio_pin_number}/status")
-        def get_reed_status_by_gpio_pin_number(gpio_pin_number: int) -> ReedStatus:
-            return self.reed_service.get_status_by_id(gpio_pin_number).to_dict()
+        def get_reed_status_by_gpio_pin_number(gpio_pin_number: int):
+            return self.reed_service.get_status_by_pin(gpio_pin_number).to_dict()
 
