@@ -2,12 +2,14 @@ import sys
 from typing import Dict
 
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
+from rabbitmq_sdk.event.impl.rtsp_cameras_listener.camera_changed_status import CameraChangedStatus
 
 from app.exceptions.cameras_listener_exception import CamerasListenerException
 from app.jobs.cameras_listener import CamerasListener
 from app.jobs.impl.camera_listener_thread import CameraListenerThread
 from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
+from rabbitmq_sdk.event.impl.rtsp_cameras_listener.enums.camera_status import CameraStatus as RabbitCameraStatus
 
 
 class CamerasListenerImpl(CamerasListener):
@@ -60,7 +62,12 @@ class CamerasListenerImpl(CamerasListener):
         # Status changed, emit event; status changed control should happen in thread instead of bombarding this
         # callback with statuses for each frame.
         self.cameras_status[camera] = status
-        print(f"Changed status for camera {camera.ip}: {status.value}")
+        rabbit_status: RabbitCameraStatus = RabbitCameraStatus.IDLE
+        if status == CameraStatus.UNREACHABLE:
+            rabbit_status = RabbitCameraStatus.UNREACHABLE
+        elif status == CameraStatus.MOVEMENT_DETECTED:
+            rabbit_status = RabbitCameraStatus.MOVEMENT_DETECTED
+
+        print(f"Status has changed for camera on ip {camera.ip}: {status.value}")
         sys.stdout.flush()
-        #TODO should publish event here once it is working
-        # like this -> self.rabbitmq_client.publish(CameraChangedStatus(camera.ip, RabbitCameraStatus.IDLE))
+        self.rabbitmq_client.publish(CameraChangedStatus(camera.ip, rabbit_status, blob))

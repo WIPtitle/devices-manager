@@ -1,4 +1,3 @@
-import sys
 import threading
 from typing import Callable
 
@@ -24,22 +23,23 @@ class CameraListenerThread(threading.Thread):
             f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}")
         fgbg = cv2.createBackgroundSubtractorMOG2()
         frame_counter = 0
-        counter = 0
 
         while self.running:
-            print(f"running {counter}")
-            counter += 1
-            sys.stdout.flush()
-            if not self.camera.is_reachable() and self.current_status != CameraStatus.UNREACHABLE:
-                self.current_status = CameraStatus.UNREACHABLE
-                self.callback(self.camera, CameraStatus.UNREACHABLE, None)
-                continue
+            try:
+                # Do NOT use camera.is_reachable() here since it is a heavy operation and we do NOT want to slow down
+                # this cycle.
+                if not cap.isOpened():
+                    self.set_and_post_status(CameraStatus.UNREACHABLE)
+                    continue
 
-            ret, frame = cap.read()
-            if ret:
-                # Process only one frame every four. This is kind of a "magic" number since I don't let users
+                ret, frame = cap.read()
+                if not ret:
+                    self.set_and_post_status(CameraStatus.UNREACHABLE)
+                    continue
+
+                # Process only one frame every five. This is kind of a "magic" number since I don't let users
                 # set it, but most cameras will have no framerate too low problem.
-                frame_counter = (frame_counter + 1) % 4
+                frame_counter = (frame_counter + 1) % 5
                 if frame_counter != 0:
                     continue
 
@@ -65,25 +65,28 @@ class CameraListenerThread(threading.Thread):
                     cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
 
                     merged_area = (x_max - x_min) * (y_max - y_min)
-                    print(merged_area)
-                    print(self.camera.sensibility / 100 * frame_area)
-                    if (merged_area > self.camera.sensibility / 100 * frame_area) and self.current_status != CameraStatus.MOVEMENT_DETECTED:
-                        print(f"Changed status for camera")
-                        sys.stdout.flush()
+                    if merged_area > self.camera.sensibility / 100 * frame_area:
                         # Enough movement found
                         _, jpeg = cv2.imencode('.jpg', frame)
                         blob = jpeg.tobytes()
 
-                        self.current_status = CameraStatus.MOVEMENT_DETECTED
-                        self.callback(self.camera, CameraStatus.MOVEMENT_DETECTED, blob)
+                        self.set_and_post_status(CameraStatus.MOVEMENT_DETECTED, blob)
                         continue
 
                 # If we reach the end it means no movement big enough was found so camera returns in idle status
-                if self.current_status != CameraStatus.IDLE:
-                    self.current_status = CameraStatus.IDLE
-                    self.callback(self.camera, CameraStatus.IDLE, None)
+                self.set_and_post_status(CameraStatus.IDLE)
+
+            except:
+                self.set_and_post_status(CameraStatus.UNREACHABLE)
+                continue
 
         cap.release()
+
+
+    def set_and_post_status(self, status: CameraStatus, blob: bytes | None = None):
+        if self.current_status != status:
+            self.current_status = status
+            self.callback(self.camera, status, blob)
 
 
     def stop(self):
