@@ -37,7 +37,11 @@ class CameraRepositoryImpl(CameraRepository):
 
     def update(self, camera: Camera) -> Camera:
         camera_db = self.find_by_ip(camera.ip)
-        # TODO update if something needs updating
+        camera_db.port = camera.port
+        camera_db.username = camera.username
+        camera_db.password = camera.password
+        camera_db.path = camera.path
+        camera_db.sensibility = camera.sensibility
         self.database_connector.get_session().commit()
         self.database_connector.get_session().refresh(camera_db)
         return camera_db

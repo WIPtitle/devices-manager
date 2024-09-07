@@ -35,8 +35,13 @@ class CameraServiceImpl(CameraService):
 
 
     def update(self, ip: str, camera: Camera) -> Camera:
-        if camera.ip is not ip:
+        if camera.ip != ip:
             raise UnupdateableDataException("Can't update ip")
+
+        # Stop user from updating to an unreachable camera.
+        # A camera can still become unreachable but prevent creating one that already is.
+        if not camera.is_reachable():
+            raise ValidationException("Camera is not reachable")
 
         camera = self.camera_repository.update(camera)
         self.cameras_listener.update_camera(camera)

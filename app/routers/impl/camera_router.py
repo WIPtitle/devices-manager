@@ -43,6 +43,6 @@ class CameraRouter(RouterWrapper):
 
 
         @self.router.get("/{ip}/status")
-        def get_camera_status_by_ip(ip: str) -> CameraStatus:
+        def get_camera_status_by_ip(ip: str):
             return self.camera_service.get_status_by_ip(ip).to_dict()
 

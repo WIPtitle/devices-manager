@@ -8,6 +8,7 @@ class Camera(SQLModel, table=True):
     username: str
     password: str
     path: str
+    sensibility: int # Percentage of camera area for minimum area of motion
 
 
     def is_reachable(self):
