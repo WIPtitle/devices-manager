@@ -29,7 +29,7 @@ class ReedServiceImpl(ReedService):
 
 
     def update(self, gpio_pin_number: int, reed: Reed) -> Reed:
-        if reed.gpio_pin_number is not gpio_pin_number:
+        if reed.gpio_pin_number != gpio_pin_number:
             raise UnupdateableDataException("Can't update gpio_pin_number")
 
         reed = self.reed_repository.update(reed)
