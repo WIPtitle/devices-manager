@@ -34,6 +34,14 @@ class RecordingRepositoryImpl(RecordingRepository):
         raise BadRequestException("Recording already exists")
 
 
+    def set_stopped(self, recording: Recording) -> Recording:
+        recording_db = self.find_by_id(recording.id)
+        recording_db.is_completed = True
+        self.database_connector.get_session().commit()
+        self.database_connector.get_session().refresh(recording_db)
+        return recording_db
+
+
     def delete_by_id(self, rec_id: int) -> Recording:
         recording_db = self.find_by_id(rec_id)
         self.database_connector.get_session().delete(recording_db)

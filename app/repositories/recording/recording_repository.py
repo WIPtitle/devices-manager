@@ -14,6 +14,10 @@ class RecordingRepository(ABC):
         pass
 
     @abstractmethod
+    def set_stopped(self, recording: Recording) -> Recording:
+        pass
+
+    @abstractmethod
     def delete_by_id(self, rec_id: int) -> Recording:
         pass
 
