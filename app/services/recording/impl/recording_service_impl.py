@@ -36,9 +36,7 @@ class RecordingServiceImpl(RecordingService):
 
 
     def delete_by_id(self, rec_id: int) -> Recording:
-        recording = self.recording_repository.delete_by_id(rec_id)
-        self.recording_manager.delete_recording(recording)
-        return recording
+        return self.recording_repository.delete_by_id(rec_id)
 
 
     def get_all(self) -> Sequence[Recording]:
