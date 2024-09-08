@@ -2,11 +2,11 @@ from typing import Sequence
 
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.exceptions.validation_exception import ValidationException
-from app.jobs.cameras_listener import CamerasListener
+from app.jobs.camera.cameras_listener import CamerasListener
 from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
 from app.repositories.camera.camera_repository import CameraRepository
-from app.services.camera.camera_service_impl import CameraService
+from app.services.camera.camera_service import CameraService
 
 
 class CameraServiceImpl(CameraService):

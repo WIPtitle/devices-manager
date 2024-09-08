@@ -4,7 +4,7 @@ from app.config.bindings import inject
 from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
 from app.routers.router_wrapper import RouterWrapper
-from app.services.camera.camera_service_impl import CameraService
+from app.services.camera.camera_service import CameraService
 
 
 class CameraRouter(RouterWrapper):
@@ -21,8 +21,8 @@ class CameraRouter(RouterWrapper):
             return self.camera_service.get_by_ip(ip)
 
 
-        @self.router.post("/", operation_id="create_slash")
-        @self.router.post("", operation_id="create_without_slash")
+        @self.router.post("/", operation_id="create_camera_slash")
+        @self.router.post("", operation_id="create_camera_without_slash")
         def create_camera(camera: Camera) -> Camera:
             return self.camera_service.create(camera)
 

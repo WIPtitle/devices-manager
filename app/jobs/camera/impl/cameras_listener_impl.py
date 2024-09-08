@@ -5,8 +5,8 @@ from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.event.impl.rtsp_cameras_listener.camera_changed_status import CameraChangedStatus
 
 from app.exceptions.cameras_listener_exception import CamerasListenerException
-from app.jobs.cameras_listener import CamerasListener
-from app.jobs.impl.camera_listener_thread import CameraListenerThread
+from app.jobs.camera.cameras_listener import CamerasListener
+from app.jobs.camera.impl.camera_listener_thread import CameraListenerThread
 from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
 from rabbitmq_sdk.event.impl.rtsp_cameras_listener.enums.camera_status import CameraStatus as RabbitCameraStatus

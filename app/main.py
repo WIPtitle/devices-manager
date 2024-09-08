@@ -4,11 +4,13 @@ from fastapi import FastAPI
 
 from app.config.handlers import get_exception_handlers
 from app.routers.impl.camera_router import CameraRouter
+from app.routers.impl.recording_router import RecordingRouter
 from app.routers.router_wrapper import RouterWrapper
 
 exception_handlers = get_exception_handlers()
 routers: List[RouterWrapper] = [
-    CameraRouter()
+    CameraRouter(),
+    RecordingRouter()
 ]
 
 app = FastAPI()
