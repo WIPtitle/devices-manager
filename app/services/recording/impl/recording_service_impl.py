@@ -1,6 +1,9 @@
+import os
 from typing import Sequence
 
-from app.exceptions.validation_exception import ValidationException
+from fastapi.responses import StreamingResponse, FileResponse
+
+from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.models.recording import Recording
 from app.repositories.camera.camera_repository import CameraRepository
@@ -22,7 +25,7 @@ class RecordingServiceImpl(RecordingService):
     def create(self, recording: Recording) -> Recording:
         camera = self.camera_repository.find_by_ip(recording.camera_ip) # will throw if not found
         if not camera.is_reachable():
-            raise ValidationException("Camera is not reachable")
+            raise BadRequestException("Camera is not reachable")
 
         recording = self.recording_repository.create(recording)
         self.recording_manager.start_recording(recording)
@@ -44,3 +47,27 @@ class RecordingServiceImpl(RecordingService):
 
     def get_all(self) -> Sequence[Recording]:
         return self.recording_repository.find_all()
+
+
+    def stream(self, rec_id: int):
+        recording = self.recording_repository.find_by_id(rec_id)
+        if not recording.is_completed:
+            raise BadRequestException("Recording is not yet completed")
+
+        file_path = os.path.join(recording.path, recording.name)
+        return StreamingResponse(iterfile(file_path), media_type="video/webm")
+
+
+    def download(self, rec_id: int):
+        recording = self.recording_repository.find_by_id(rec_id)
+        if not recording.is_completed:
+            raise BadRequestException("Recording is not yet completed")
+
+        file_path = os.path.join(recording.path, recording.name)
+        return FileResponse(file_path, media_type="video/webm", filename=recording.name)
+
+
+def iterfile(file_path: str):
+    with open(file_path, "rb") as file:
+        while chunk := file.read(1024):
+            yield chunk

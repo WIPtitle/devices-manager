@@ -20,14 +20,11 @@ class RecordingThread(threading.Thread):
 
         cap = cv2.VideoCapture(rtsp_url)
 
+        fps = cap.get(cv2.CAP_PROP_FPS)
         original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        desired_height = 480
-        aspect_ratio = original_width / original_height
-        desired_width = int(desired_height * aspect_ratio)
-
-        out = cv2.VideoWriter(file_path, cv2.VideoWriter.fourcc(*'MP4V'), 24.0, (desired_width, desired_height))
+        out = cv2.VideoWriter(file_path, cv2.VideoWriter.fourcc(*'vp80'), fps, (original_width, original_height))
 
         while self.running:
             ret, frame = cap.read()

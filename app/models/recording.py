@@ -21,11 +21,11 @@ class Recording(SQLModel, table=True):
     @classmethod
     def from_dto(cls, dto: RecordingInputDto):
         start_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        file_name = f"{start_time}_{dto.camera_ip}.mp4"
+        file_name = f"{start_time}_{dto.camera_ip}.webm"
         return cls(
             camera_ip=dto.camera_ip,
             name=file_name,
-            path="/var/lib/cameras-listener/data/recordings",
+            path="/var/lib/cameras-listener/data",
             is_completed=False
         )
 

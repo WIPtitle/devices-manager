@@ -41,3 +41,13 @@ class RecordingRouter(RouterWrapper):
         @self.router.get("/")
         def get_all_recordings() -> Sequence[Recording]:
             return self.recording_service.get_all()
+
+
+        @self.router.get("/stream/{rec_id}")
+        def stream_recording(rec_id: int):
+            return self.recording_service.stream(rec_id)
+
+
+        @self.router.get("/download/{rec_id}")
+        def stream_recording(rec_id: int):
+            return self.recording_service.download(rec_id)

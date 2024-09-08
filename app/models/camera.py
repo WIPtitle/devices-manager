@@ -12,7 +12,6 @@ class Camera(SQLModel, table=True):
 
 
     def is_reachable(self):
-        print(f"rtsp://{self.username}:{self.password}@{self.ip}:{self.port}/{self.path}")
         cap = cv2.VideoCapture(f"rtsp://{self.username}:{self.password}@{self.ip}:{self.port}/{self.path}")
         if not cap.isOpened():
             return False

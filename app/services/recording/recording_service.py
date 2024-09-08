@@ -24,3 +24,11 @@ class RecordingService(ABC):
     @abstractmethod
     def get_all(self) -> Sequence[Recording]:
         pass
+
+    @abstractmethod
+    def stream(self, rec_id: int):
+        pass
+
+    @abstractmethod
+    def download(self, rec_id: int):
+        pass

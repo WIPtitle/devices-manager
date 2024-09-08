@@ -1,5 +1,6 @@
 from typing import Sequence
 
+from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.exceptions.validation_exception import ValidationException
 from app.jobs.camera.cameras_listener import CamerasListener
@@ -27,7 +28,7 @@ class CameraServiceImpl(CameraService):
         # Stop user from adding an unreachable camera.
         # A camera can still become unreachable but prevent creating one that already is.
         if not camera.is_reachable():
-            raise ValidationException("Camera is not reachable")
+            raise BadRequestException("Camera is not reachable")
 
         camera = self.camera_repository.create(camera)
         self.cameras_listener.add_camera(camera)
@@ -41,7 +42,7 @@ class CameraServiceImpl(CameraService):
         # Stop user from updating to an unreachable camera.
         # A camera can still become unreachable but prevent creating one that already is.
         if not camera.is_reachable():
-            raise ValidationException("Camera is not reachable")
+            raise BadRequestException("Camera is not reachable")
 
         camera = self.camera_repository.update(camera)
         self.cameras_listener.update_camera(camera)
