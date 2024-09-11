@@ -11,7 +11,6 @@ class DiskUsageRouter(RouterWrapper):
 
 
     def _define_routes(self):
-        # Basic CRUD
         @self.router.get("/")
         def get_usage() -> DiskUsage:
             return DiskUsage.from_path(get_recordings_path())
