@@ -10,6 +10,10 @@ class RecordingRepository(ABC):
         pass
 
     @abstractmethod
+    def find_by_name(self, name: str) -> Recording:
+        pass
+
+    @abstractmethod
     def create(self, recording: Recording) -> Recording:
         pass
 

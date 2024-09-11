@@ -39,7 +39,7 @@ camera_repository = CameraRepositoryImpl(database_connector=database_connector)
 recording_repository = RecordingRepositoryImpl(database_connector=database_connector)
 
 cameras_listener = CamerasListenerImpl(rabbitmq_client)
-recording_manager = RecordingsManagerImpl(camera_repository)
+recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
 
 camera_service = CameraServiceImpl(camera_repository=camera_repository, cameras_listener=cameras_listener)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)

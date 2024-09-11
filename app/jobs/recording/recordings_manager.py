@@ -11,3 +11,7 @@ class RecordingsManager:
     @abstractmethod
     def stop_recording(self, recording: Recording):
         pass
+
+    @abstractmethod
+    def delete_recording(self, recording: Recording):
+        pass

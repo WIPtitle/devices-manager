@@ -23,6 +23,14 @@ class RecordingRepositoryImpl(RecordingRepository):
         return recording_db
 
 
+    def find_by_name(self, name: str) -> Recording:
+        statement = select(Recording).where(Recording.name == name)
+        recording_db = self.database_connector.get_session().exec(statement).first()
+        if recording_db is None:
+            raise NotFoundException("Recording was not found")
+        return recording_db
+
+
     def create(self, recording: Recording) -> Recording:
         try:
             self.find_by_id(recording.id)
