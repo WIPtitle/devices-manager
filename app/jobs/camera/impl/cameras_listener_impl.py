@@ -1,4 +1,5 @@
 import sys
+import time
 from typing import Dict
 
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
@@ -70,4 +71,4 @@ class CamerasListenerImpl(CamerasListener):
 
         print(f"Status has changed for camera on ip {camera.ip}: {status.value}")
         sys.stdout.flush()
-        self.rabbitmq_client.publish(CameraChangedStatus(camera.ip, rabbit_status, blob))
+        self.rabbitmq_client.publish(CameraChangedStatus(camera.ip, rabbit_status, blob, int(time.time())))

@@ -1,5 +1,6 @@
-import subprocess
 from typing import Sequence
+
+import cv2
 
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
@@ -16,6 +17,7 @@ class CameraServiceImpl(CameraService):
         self.cameras_listener = cameras_listener
 
         # When service is created on app init, start listening to already saved cameras.
+        # Also start streaming process
         for camera in self.camera_repository.find_all():
             self.cameras_listener.add_camera(camera)
 
@@ -64,19 +66,22 @@ class CameraServiceImpl(CameraService):
         return self.cameras_listener.get_status_by_camera(camera)
 
 
-    def stream(self, camera: Camera):
-        url = f"rtsp://{camera.username}:{camera.password}@{camera.ip}:{camera.port}/{camera.path}"
-        command = [
-            'ffmpeg',
-            '-i', url,
-            '-c:v', 'libx264',
-            '-c:a', 'aac',
-            '-f', 'mpegts',
-            'pipe:1'
-        ]
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    def get_frames(self, ip: str):
+        camera = self.camera_repository.find_by_ip(ip)
+        if not camera.is_reachable():
+            raise BadRequestException("Camera is not reachable")
+
+        cap = cv2.VideoCapture(
+            f"rtsp://{camera.username}:{camera.password}@{camera.ip}:{camera.port}/{camera.path}")
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_interval = int(fps / 2)  # 2 FPS will be enough
+        frame_count = 0
+
         while True:
-            data = process.stdout.read(1024)
-            if not data:
+            ret, frame = cap.read()
+            if not ret:
                 break
-            yield data
+            if frame_count % frame_interval == 0:
+                ret, buffer = cv2.imencode(".webp", frame)
+                yield buffer.tobytes()
+            frame_count += 1

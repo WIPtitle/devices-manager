@@ -31,5 +31,5 @@ class CameraService(ABC):
         pass
 
     @abstractmethod
-    def stream(self, camera: Camera):
+    def get_frames(self, ip: str):
         pass

@@ -49,5 +49,5 @@ class RecordingRouter(RouterWrapper):
 
 
         @self.router.get("/download/{rec_id}")
-        def stream_recording(rec_id: int):
+        def download_recording(rec_id: int):
             return self.recording_service.download(rec_id)

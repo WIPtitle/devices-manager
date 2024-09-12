@@ -1,9 +1,9 @@
 from typing import Sequence
 
+from fastapi import Request
 from fastapi.responses import StreamingResponse
 
 from app.config.bindings import inject
-from app.exceptions.bad_request_exception import BadRequestException
 from app.models.camera import Camera
 from app.routers.router_wrapper import RouterWrapper
 from app.services.camera.camera_service import CameraService
@@ -50,8 +50,14 @@ class CameraRouter(RouterWrapper):
 
 
         @self.router.get("/{ip}/stream")
-        async def get_camera_stream_by_ip(ip: str):
-            camera = self.camera_service.get_by_ip(ip)
-            if not camera.is_reachable():
-                return BadRequestException("Camera is not reachable")
-            return StreamingResponse(self.camera_service.stream(camera), media_type='video/mp2t')
+        async def get_camera_stream_by_ip(request: Request, ip: str):
+            async def stream_frames():
+                for frame in self.camera_service.get_frames(ip):
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/webp\r\n\r\n" + frame + b"\r\n"
+                    )
+                    if await request.is_disconnected():
+                        break
+
+            return StreamingResponse(stream_frames(), media_type="multipart/x-mixed-replace;boundary=frame")
