@@ -1,7 +1,7 @@
 from typing import Sequence
 
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
-from app.jobs.reeds_listener import ReedsListener
+from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.enums.reed_status import ReedStatus
 from app.models.reed import Reed
 from app.repositories.reed.reed_repository import ReedRepository
