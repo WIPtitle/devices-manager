@@ -10,10 +10,10 @@ from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
 from app.jobs.impl.reeds_listener_impl import ReedsListenerImpl
 from app.jobs.reeds_listener import ReedsListener
-from app.repositories.reed.reed_repository import ReedRepository
 from app.repositories.reed.impl.reed_repository_impl import ReedRepositoryImpl
-from app.services.reed.reed_service import ReedService
+from app.repositories.reed.reed_repository import ReedRepository
 from app.services.reed.impl.reed_service_impl import ReedServiceImpl
+from app.services.reed.reed_service import ReedService
 from app.utils.read_credentials import read_credentials
 
 bindings = { }

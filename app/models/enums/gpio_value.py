@@ -1,6 +1,6 @@
-import RPi.GPIO as GPIO
-
 from enum import Enum
+
+import RPi.GPIO as GPIO
 
 
 class GpioValue(str, Enum):

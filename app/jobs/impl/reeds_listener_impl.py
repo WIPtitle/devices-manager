@@ -4,12 +4,12 @@ from typing import Dict
 
 import RPi.GPIO as GPIO
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
+from rabbitmq_sdk.event.impl.magnetic_reeds_listener.enums.reed_status import ReedStatus as RabbitReedStatus
 from rabbitmq_sdk.event.impl.magnetic_reeds_listener.reed_changed_status import ReedChangedStatus
 
 from app.exceptions.reeds_listener_exception import ReedsListenerException
 from app.jobs.reeds_listener import ReedsListener
 from app.models.enums.reed_status import ReedStatus
-from rabbitmq_sdk.event.impl.magnetic_reeds_listener.enums.reed_status import ReedStatus as RabbitReedStatus
 from app.models.reed import Reed
 
 
