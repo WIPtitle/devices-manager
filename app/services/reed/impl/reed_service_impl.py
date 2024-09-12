@@ -4,14 +4,16 @@ from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.enums.reed_status import ReedStatus
 from app.models.reed import Reed
+from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.reed.reed_repository import ReedRepository
 from app.services.reed.reed_service import ReedService
 
 
 class ReedServiceImpl(ReedService):
-    def __init__(self, reed_repository: ReedRepository, reeds_listener: ReedsListener):
+    def __init__(self, reed_repository: ReedRepository, reeds_listener: ReedsListener, device_group_repository: DeviceGroupRepository):
         self.reed_repository = reed_repository
         self.reeds_listener = reeds_listener
+        self.device_group_repository = device_group_repository
 
         # When service is created on app init, start listening to already saved reeds.
         for reed in self.reed_repository.find_all():

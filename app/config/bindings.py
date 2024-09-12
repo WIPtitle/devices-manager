@@ -15,15 +15,18 @@ from app.jobs.recording.impl.recordings_manager_impl import RecordingsManagerImp
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.camera.impl.camera_repository_impl import CameraRepositoryImpl
+from app.repositories.device_group.device_group_repository import DeviceGroupRepository
+from app.repositories.device_group.impl.device_group_repository_impl import DeviceGroupRepositoryImpl
 from app.repositories.recording.impl.recording_repository_impl import RecordingRepositoryImpl
 from app.repositories.recording.recording_repository import RecordingRepository
 from app.services.camera.camera_service import CameraService
 from app.services.camera.impl.camera_service_impl import CameraServiceImpl
+from app.services.device_group.device_group_service import DeviceGroupService
+from app.services.device_group.impl.device_group_service_impl import DeviceGroupServiceImpl
 from app.services.recording.impl.recording_service_impl import RecordingServiceImpl
 from app.services.recording.recording_service import RecordingService
 from app.utils.raspberry_check import is_raspberry
 from app.utils.read_credentials import read_credentials
-
 
 bindings = { }
 
@@ -40,11 +43,13 @@ rabbitmq_client = RabbitMQClientImpl.from_config(
 
 camera_repository = CameraRepositoryImpl(database_connector=database_connector)
 recording_repository = RecordingRepositoryImpl(database_connector=database_connector)
+device_group_repository = DeviceGroupRepositoryImpl(database_connector=database_connector)
 
 cameras_listener = CamerasListenerImpl(rabbitmq_client)
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
+device_group_service = DeviceGroupServiceImpl(device_group_repository)
 
-camera_service = CameraServiceImpl(camera_repository=camera_repository, cameras_listener=cameras_listener)
+camera_service = CameraServiceImpl(camera_repository=camera_repository, cameras_listener=cameras_listener, device_group_repository=device_group_repository)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
 
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
@@ -53,12 +58,14 @@ bindings[RabbitMQClient] = rabbitmq_client
 
 bindings[CameraRepository] = camera_repository
 bindings[RecordingRepository] = recording_repository
+bindings[DeviceGroupRepository] = device_group_repository
 
 bindings[CamerasListener] = cameras_listener
 bindings[RecordingsManager] = recording_manager
 
 bindings[CameraService] = camera_service
 bindings[RecordingService] = recording_service
+bindings[DeviceGroupService] = device_group_service
 
 if is_raspberry():
     from app.jobs.reed.impl.reeds_listener_impl import ReedsListenerImpl
@@ -70,7 +77,7 @@ if is_raspberry():
 
     reeds_listener = ReedsListenerImpl(rabbitmq_client)
     reed_repository = ReedRepositoryImpl(database_connector=database_connector)
-    reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener)
+    reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener, device_group_repository=device_group_repository)
 
     bindings[ReedsListener] = reeds_listener
     bindings[ReedRepository] = reed_repository

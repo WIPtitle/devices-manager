@@ -34,7 +34,6 @@ class ReedRepositoryImpl(ReedRepository):
         raise BadRequestException("Reed already exists")
 
 
-
     def update(self, reed: Reed) -> Reed:
         reed_db = self.find_by_gpio_pin_number(reed.gpio_pin_number)
         reed_db.default_value_when_closed = reed.default_value_when_closed

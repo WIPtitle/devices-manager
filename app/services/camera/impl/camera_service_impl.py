@@ -8,13 +8,15 @@ from app.jobs.camera.cameras_listener import CamerasListener
 from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
 from app.repositories.camera.camera_repository import CameraRepository
+from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.services.camera.camera_service import CameraService
 
 
 class CameraServiceImpl(CameraService):
-    def __init__(self, camera_repository: CameraRepository, cameras_listener: CamerasListener):
+    def __init__(self, camera_repository: CameraRepository, cameras_listener: CamerasListener, device_group_repository: DeviceGroupRepository):
         self.camera_repository = camera_repository
         self.cameras_listener = cameras_listener
+        self.device_group_repository = device_group_repository
 
         # When service is created on app init, start listening to already saved cameras.
         # Also start streaming process

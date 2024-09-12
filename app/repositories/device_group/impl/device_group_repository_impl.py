@@ -1,0 +1,90 @@
+from sqlmodel import select
+
+from app.exceptions.not_found_exception import NotFoundException
+from app.models.device_group import Device, DeviceGroup, DeviceGroupLink
+from app.repositories.device_group.device_group_repository import DeviceGroupRepository
+
+
+class DeviceGroupRepositoryImpl(DeviceGroupRepository):
+    def __init__(self, database_connector):
+        self.database_connector = database_connector
+
+
+    def create_device(self, device: Device):
+        session = self.database_connector.get_session()
+        session.add(device)
+        session.commit()
+        session.refresh(device)
+        return device
+
+
+    def delete_device(self, device_id: int):
+        session = self.database_connector.get_session()
+        device = self.find_device_by_id(device_id)
+        session.delete(device)
+        session.commit()
+
+
+    def create_device_group(self, device_group: DeviceGroup):
+        session = self.database_connector.get_session()
+        session.add(device_group)
+        session.commit()
+        session.refresh(device_group)
+        return device_group
+
+
+    def delete_device_group(self, group_id: int):
+        session = self.database_connector.get_session()
+        device_group = self.find_device_group_by_id(group_id)
+        session.delete(device_group)
+        session.commit()
+
+
+    def update_device_group(self, group_id: int, name: str):
+        session = self.database_connector.get_session()
+        device_group = self.find_device_group_by_id(group_id)
+        device_group.name = name
+        session.commit()
+        session.refresh(device_group)
+        return device_group
+
+
+    def update_devices_in_group(self, group_id: int, devices: list[Device]):
+        session = self.database_connector.get_session()
+
+        statement = select(DeviceGroupLink).where(DeviceGroupLink.group_id == group_id)
+        current_links = session.exec(statement).all()
+
+        current_device_ids = {link.device_id for link in current_links}
+        new_device_ids = {device.id for device in devices}
+
+        devices_to_add = new_device_ids - current_device_ids
+        devices_to_remove = current_device_ids - new_device_ids
+
+        for device_id in devices_to_remove:
+            link = session.exec(select(DeviceGroupLink).where(DeviceGroupLink.device_id == device_id,
+                                                              DeviceGroupLink.group_id == group_id)).first()
+            if link:
+                session.delete(link)
+
+        for device_id in devices_to_add:
+            link = DeviceGroupLink(device_id=device_id, group_id=group_id)
+            session.add(link)
+
+        session.commit()
+
+
+    def find_device_by_id(self, device_id: int) -> Device:
+        statement = select(Device).where(Device.id == device_id)
+        device = self.database_connector.get_session().exec(statement).first()
+        if device is None:
+            raise NotFoundException("Device was not found")
+        return device
+
+
+    def find_device_group_by_id(self, group_id: int) -> DeviceGroup:
+        statement = select(DeviceGroup).where(DeviceGroup.id == group_id)
+        device_group = self.database_connector.get_session().exec(statement).first()
+        if device_group is None:
+            raise NotFoundException("DeviceGroup was not found")
+        return device_group
