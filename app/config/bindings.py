@@ -36,7 +36,7 @@ rabbitmq_client = RabbitMQClientImpl.from_config(
     port=5672,
     username=rabbit_credentials['RABBITMQ_USER'],
     password=rabbit_credentials['RABBITMQ_PASSWORD']
-).with_current_service(Service.RTSP_CAMERAS_LISTENER)#TODO will change after merge
+).with_current_service(Service.DEVICES_MANAGER)
 
 camera_repository = CameraRepositoryImpl(database_connector=database_connector)
 recording_repository = RecordingRepositoryImpl(database_connector=database_connector)
