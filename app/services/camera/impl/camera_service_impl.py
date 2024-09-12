@@ -1,3 +1,4 @@
+import subprocess
 from typing import Sequence
 
 from app.exceptions.bad_request_exception import BadRequestException
@@ -61,3 +62,21 @@ class CameraServiceImpl(CameraService):
     def get_status_by_ip(self, ip: str) -> CameraStatus:
         camera = self.camera_repository.find_by_ip(ip)
         return self.cameras_listener.get_status_by_camera(camera)
+
+
+    def stream(self, camera: Camera):
+        url = f"rtsp://{camera.username}:{camera.password}@{camera.ip}:{camera.port}/{camera.path}"
+        command = [
+            'ffmpeg',
+            '-i', url,
+            '-c:v', 'libx264',
+            '-c:a', 'aac',
+            '-f', 'mpegts',
+            'pipe:1'
+        ]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        while True:
+            data = process.stdout.read(1024)
+            if not data:
+                break
+            yield data

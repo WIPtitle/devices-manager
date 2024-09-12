@@ -29,3 +29,7 @@ class CameraService(ABC):
     @abstractmethod
     def get_status_by_ip(self, ip: str) -> CameraStatus:
         pass
+
+    @abstractmethod
+    def stream(self, camera: Camera):
+        pass
