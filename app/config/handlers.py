@@ -2,9 +2,9 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from app.exceptions.bad_request_exception import BadRequestException
+from app.exceptions.cameras_listener_exception import CamerasListenerException
 from app.exceptions.internal_error_exception import InternalErrorException
 from app.exceptions.not_found_exception import NotFoundException
-from app.exceptions.cameras_listener_exception import CamerasListenerException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.exceptions.validation_exception import ValidationException
 

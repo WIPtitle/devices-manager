@@ -8,8 +8,8 @@ from rabbitmq_sdk.enums.service import Service
 
 from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
-from app.jobs.camera.impl.cameras_listener_impl import CamerasListenerImpl
 from app.jobs.camera.cameras_listener import CamerasListener
+from app.jobs.camera.impl.cameras_listener_impl import CamerasListenerImpl
 from app.jobs.recording.impl.recordings_manager_impl import RecordingsManagerImpl
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.repositories.camera.camera_repository import CameraRepository

@@ -2,7 +2,6 @@ from typing import Sequence
 
 from app.config.bindings import inject
 from app.models.camera import Camera
-from app.models.enums.camera_status import CameraStatus
 from app.routers.router_wrapper import RouterWrapper
 from app.services.camera.camera_service import CameraService
 
