@@ -20,6 +20,12 @@ from app.services.camera.camera_service import CameraService
 from app.services.camera.impl.camera_service_impl import CameraServiceImpl
 from app.services.recording.impl.recording_service_impl import RecordingServiceImpl
 from app.services.recording.recording_service import RecordingService
+from app.jobs.impl.reeds_listener_impl import ReedsListenerImpl
+from app.jobs.reeds_listener import ReedsListener
+from app.repositories.reed.impl.reed_repository_impl import ReedRepositoryImpl
+from app.repositories.reed.reed_repository import ReedRepository
+from app.services.reed.impl.reed_service_impl import ReedServiceImpl
+from app.services.reed.reed_service import ReedService
 from app.utils.read_credentials import read_credentials
 
 bindings = { }
@@ -33,16 +39,19 @@ rabbitmq_client = RabbitMQClientImpl.from_config(
     port=5672,
     username=rabbit_credentials['RABBITMQ_USER'],
     password=rabbit_credentials['RABBITMQ_PASSWORD']
-).with_current_service(Service.RTSP_CAMERAS_LISTENER)
+).with_current_service(Service.RTSP_CAMERAS_LISTENER)#TODO will change after merge
 
 camera_repository = CameraRepositoryImpl(database_connector=database_connector)
 recording_repository = RecordingRepositoryImpl(database_connector=database_connector)
+reeds_listener = ReedsListenerImpl(rabbitmq_client)
 
 cameras_listener = CamerasListenerImpl(rabbitmq_client)
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
 
 camera_service = CameraServiceImpl(camera_repository=camera_repository, cameras_listener=cameras_listener)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
+reed_repository = ReedRepositoryImpl(database_connector=database_connector)
+reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener)
 
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
 bindings[DatabaseConnector] = database_connector
@@ -50,12 +59,15 @@ bindings[RabbitMQClient] = rabbitmq_client
 
 bindings[CameraRepository] = camera_repository
 bindings[RecordingRepository] = recording_repository
+bindings[ReedsListener] = reeds_listener
 
 bindings[CamerasListener] = cameras_listener
 bindings[RecordingsManager] = recording_manager
 
 bindings[CameraService] = camera_service
 bindings[RecordingService] = recording_service
+bindings[ReedRepository] = reed_repository
+bindings[ReedService] = reed_service
 
 
 def resolve(interface):
