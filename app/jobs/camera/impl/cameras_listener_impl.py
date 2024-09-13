@@ -11,11 +11,13 @@ from app.jobs.camera.cameras_listener import CamerasListener
 from app.jobs.camera.impl.camera_listener_thread import CameraListenerThread
 from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
+from app.repositories.camera.camera_repository import CameraRepository
 
 
 class CamerasListenerImpl(CamerasListener):
-    def __init__(self, rabbitmq_client: RabbitMQClient):
+    def __init__(self, rabbitmq_client: RabbitMQClient, camera_repository: CameraRepository):
         self.rabbitmq_client = rabbitmq_client
+        self.camera_repository = camera_repository
         self.cameras_status: Dict[Camera, CameraStatus] = {}
         self.threads = []
 
@@ -71,4 +73,7 @@ class CamerasListenerImpl(CamerasListener):
 
         print(f"Status has changed for camera on ip {camera.ip}: {status.value}")
         sys.stdout.flush()
-        self.rabbitmq_client.publish(CameraChangedStatus(camera.ip, rabbit_status, blob, int(time.time())))
+
+        if self.camera_repository.find_by_ip(camera.ip).listening:
+            print("Publishing event")
+            self.rabbitmq_client.publish(CameraChangedStatus(camera.ip, rabbit_status, blob, int(time.time())))

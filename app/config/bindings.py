@@ -45,7 +45,7 @@ camera_repository = CameraRepositoryImpl(database_connector=database_connector)
 recording_repository = RecordingRepositoryImpl(database_connector=database_connector)
 device_group_repository = DeviceGroupRepositoryImpl(database_connector=database_connector)
 
-cameras_listener = CamerasListenerImpl(rabbitmq_client)
+cameras_listener = CamerasListenerImpl(rabbitmq_client, camera_repository)
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
 device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository)
 
@@ -75,8 +75,8 @@ if is_raspberry():
     from app.services.reed.impl.reed_service_impl import ReedServiceImpl
     from app.services.reed.reed_service import ReedService
 
-    reeds_listener = ReedsListenerImpl(rabbitmq_client)
     reed_repository = ReedRepositoryImpl(database_connector=database_connector)
+    reeds_listener = ReedsListenerImpl(rabbitmq_client, reed_repository)
     reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener, device_group_repository=device_group_repository)
 
     device_group_service.set_reed_repository(reed_repository)

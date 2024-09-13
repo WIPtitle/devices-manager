@@ -11,6 +11,7 @@ from app.exceptions.reeds_listener_exception import ReedsListenerException
 from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.enums.reed_status import ReedStatus
 from app.models.reed import Reed
+from app.repositories.reed.reed_repository import ReedRepository
 
 
 def read_current_status_by_reed(reed: Reed) -> ReedStatus:
@@ -27,8 +28,9 @@ def read_current_status_by_reed(reed: Reed) -> ReedStatus:
 
 
 class ReedsListenerImpl(ReedsListener):
-    def __init__(self, rabbitmq_client: RabbitMQClient):
+    def __init__(self, rabbitmq_client: RabbitMQClient, reed_repository: ReedRepository):
         self.rabbitmq_client = rabbitmq_client
+        self.reed_repository = reed_repository
         self.reeds_status: Dict[Reed, ReedStatus] = {}
         self.running = True
         self.thread = threading.Thread(target=self.monitor_pins)
@@ -79,13 +81,17 @@ class ReedsListenerImpl(ReedsListener):
                 current_status = read_current_status_by_reed(reed)
                 if current_status != self.reeds_status[reed]:
                     # Status has changed, publish event
-                    self.rabbitmq_client.publish(
-                        ReedChangedStatus(
-                            reed.gpio_pin_number,
-                            RabbitReedStatus.OPEN if current_status == ReedStatus.OPEN else RabbitReedStatus.CLOSED,
-                            int(time.time())
-                        )
-                    )
                     self.reeds_status[reed] = current_status
                     print(f"Status has changed for reed on gpio {reed.gpio_pin_number}: {current_status.value}")
+
+                    if self.reed_repository.find_by_gpio_pin_number(reed.gpio_pin_number).listening:
+                        print("Publishing event")
+                        self.rabbitmq_client.publish(
+                            ReedChangedStatus(
+                                reed.gpio_pin_number,
+                                RabbitReedStatus.OPEN if current_status == ReedStatus.OPEN else RabbitReedStatus.CLOSED,
+                                int(time.time())
+                            )
+                        )
+
             time.sleep(1)
