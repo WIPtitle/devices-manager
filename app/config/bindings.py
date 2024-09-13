@@ -37,7 +37,7 @@ database_connector = DatabaseConnectorImpl()
 
 rabbit_credentials = read_credentials(os.getenv('RBBT_CREDENTIALS_FILE'))
 rabbitmq_client = RabbitMQClientImpl.from_config(
-    host='rabbitmq', # using container name as host instead of ip
+    host=os.getenv("RABBITMQ_HOSTNAME"), # using container name as host instead of ip
     port=5672,
     username=rabbit_credentials['RABBITMQ_USER'],
     password=rabbit_credentials['RABBITMQ_PASSWORD']
