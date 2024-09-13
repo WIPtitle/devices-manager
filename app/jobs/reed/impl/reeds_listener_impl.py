@@ -4,8 +4,8 @@ from typing import Dict
 
 import RPi.GPIO as GPIO
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
-from rabbitmq_sdk.event.impl.magnetic_reeds_listener.enums.reed_status import ReedStatus as RabbitReedStatus
-from rabbitmq_sdk.event.impl.magnetic_reeds_listener.reed_changed_status import ReedChangedStatus
+from rabbitmq_sdk.event.impl.devices_manager.enums.reed_status import ReedStatus as RabbitReedStatus
+from rabbitmq_sdk.event.impl.devices_manager.reed_changed_status import ReedChangedStatus
 
 from app.exceptions.reeds_listener_exception import ReedsListenerException
 from app.jobs.reed.reeds_listener import ReedsListener
@@ -82,7 +82,8 @@ class ReedsListenerImpl(ReedsListener):
                     self.rabbitmq_client.publish(
                         ReedChangedStatus(
                             reed.gpio_pin_number,
-                            RabbitReedStatus.OPEN if current_status == ReedStatus.OPEN else RabbitReedStatus.CLOSED
+                            RabbitReedStatus.OPEN if current_status == ReedStatus.OPEN else RabbitReedStatus.CLOSED,
+                            int(time.time())
                         )
                     )
                     self.reeds_status[reed] = current_status

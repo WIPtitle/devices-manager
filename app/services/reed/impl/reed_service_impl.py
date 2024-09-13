@@ -2,6 +2,8 @@ from typing import Sequence
 
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.jobs.reed.reeds_listener import ReedsListener
+from app.models.device_group import Device
+from app.models.enums.device_type import DeviceType
 from app.models.enums.reed_status import ReedStatus
 from app.models.reed import Reed
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
@@ -24,8 +26,14 @@ class ReedServiceImpl(ReedService):
         return self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
 
 
+    def get_by_generic_device_id(self, device_id: int) -> Reed:
+        return self.reed_repository.find_by_generic_device_id(device_id)
+
+
     def create(self, reed: Reed) -> Reed:
         reed = self.reed_repository.create(reed)
+        device = self.device_group_repository.create_device(Device(device_type=DeviceType.MAGNETIC_REED))
+        reed.generic_device_id = device.id
         self.reeds_listener.add_reed(reed)
         return reed
 
@@ -41,6 +49,8 @@ class ReedServiceImpl(ReedService):
 
     def delete_by_pin(self, gpio_pin_number: int) -> Reed:
         reed = self.reed_repository.delete_by_gpio_pin_number(gpio_pin_number)
+        to_delete = self.device_group_repository.delete_device_group(reed.generic_device.id)
+        self.device_group_repository.delete_device(to_delete.id)
         self.reeds_listener.remove_reed(reed)
         return reed
 

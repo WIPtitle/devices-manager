@@ -4,7 +4,7 @@ from fastapi import Request
 from fastapi.responses import StreamingResponse
 
 from app.config.bindings import inject
-from app.models.camera import Camera
+from app.models.camera import Camera, CameraInputDto
 from app.routers.router_wrapper import RouterWrapper
 from app.services.camera.camera_service import CameraService
 
@@ -23,10 +23,15 @@ class CameraRouter(RouterWrapper):
             return self.camera_service.get_by_ip(ip)
 
 
+        @self.router.get("/generic/{device_id}")
+        def get_camera_by_ip(device_id: int) -> Camera:
+            return self.camera_service.get_by_generic_device_id(device_id)
+
+
         @self.router.post("/", operation_id="create_camera_slash")
         @self.router.post("", operation_id="create_camera_without_slash")
-        def create_camera(camera: Camera) -> Camera:
-            return self.camera_service.create(camera)
+        def create_camera(camera: CameraInputDto) -> Camera:
+            return self.camera_service.create(Camera.from_dto(camera))
 
 
         @self.router.put("/{ip}")

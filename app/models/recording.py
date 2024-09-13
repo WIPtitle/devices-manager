@@ -4,7 +4,7 @@ from sqlmodel import SQLModel, Field
 
 
 def get_recordings_path():
-    return "/var/lib/cameras-listener/data"
+    return "/var/lib/devices-manager/data"
 
 # Recordings and cameras are shallowly linked: each recording was made with a camera, but if a camera
 # gets deleted we do not want to delete the recording, so we just keep the camera ip as a link that can be

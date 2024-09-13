@@ -6,7 +6,9 @@ from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.jobs.camera.cameras_listener import CamerasListener
 from app.models.camera import Camera
+from app.models.device_group import Device
 from app.models.enums.camera_status import CameraStatus
+from app.models.enums.device_type import DeviceType
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.services.camera.camera_service import CameraService
@@ -28,13 +30,20 @@ class CameraServiceImpl(CameraService):
         return self.camera_repository.find_by_ip(ip)
 
 
+    def get_by_generic_device_id(self, device_id: int) -> Camera:
+        return self.camera_repository.find_by_generic_device_id(device_id)
+
+
     def create(self, camera: Camera) -> Camera:
         # Stop user from adding an unreachable camera.
         # A camera can still become unreachable but prevent creating one that already is.
         if not camera.is_reachable():
             raise BadRequestException("Camera is not reachable")
 
+        device = self.device_group_repository.create_device(Device(device_type=DeviceType.RTSP_CAMERA))
+        camera.generic_device_id = device.id
         camera = self.camera_repository.create(camera)
+
         self.cameras_listener.add_camera(camera)
         return camera
 
@@ -55,6 +64,8 @@ class CameraServiceImpl(CameraService):
 
     def delete_by_ip(self, ip: str) -> Camera:
         camera = self.camera_repository.delete_by_ip(ip)
+        to_delete = self.device_group_repository.delete_device(camera.generic_device.id)
+        self.device_group_repository.delete_device(to_delete.id)
         self.cameras_listener.remove_camera(camera)
         return camera
 

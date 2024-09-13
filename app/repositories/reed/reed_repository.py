@@ -10,6 +10,10 @@ class ReedRepository(ABC):
         pass
 
     @abstractmethod
+    def find_by_generic_device_id(self, device_id: int):
+        pass
+
+    @abstractmethod
     def create(self, reed: Reed) -> Reed:
         pass
 
@@ -23,4 +27,8 @@ class ReedRepository(ABC):
 
     @abstractmethod
     def find_all(self) -> Sequence[Reed]:
+        pass
+
+    @abstractmethod
+    def update_listening(self, reed: Reed, listening: bool):
         pass

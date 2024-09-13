@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.config.handlers import get_exception_handlers
 from app.routers.impl.camera_router import CameraRouter
+from app.routers.impl.device_group_router import DeviceGroupRouter
 from app.routers.impl.disk_usage_router import DiskUsageRouter
 from app.routers.impl.recording_router import RecordingRouter
 from app.routers.router_wrapper import RouterWrapper
@@ -13,7 +14,8 @@ exception_handlers = get_exception_handlers()
 routers: List[RouterWrapper] = [
     CameraRouter(),
     RecordingRouter(),
-    DiskUsageRouter()
+    DiskUsageRouter(),
+    DeviceGroupRouter()
 ]
 
 # Append routers that works only if host is a raspberry. There is a similar check in bindings since we do not

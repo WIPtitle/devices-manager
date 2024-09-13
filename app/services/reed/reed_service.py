@@ -11,6 +11,10 @@ class ReedService(ABC):
         pass
 
     @abstractmethod
+    def get_by_generic_device_id(self, device_id: int) -> Reed:
+        pass
+
+    @abstractmethod
     def create(self, reed: Reed) -> Reed:
         pass
 

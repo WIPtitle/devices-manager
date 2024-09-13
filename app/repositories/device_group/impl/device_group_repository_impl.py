@@ -1,7 +1,10 @@
+from typing import List
+
 from sqlmodel import select
 
 from app.exceptions.not_found_exception import NotFoundException
 from app.models.device_group import Device, DeviceGroup, DeviceGroupLink
+from app.models.enums.device_type import DeviceType
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 
 
@@ -21,8 +24,12 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
     def delete_device(self, device_id: int):
         session = self.database_connector.get_session()
         device = self.find_device_by_id(device_id)
+
+        session.query(DeviceGroupLink).filter(DeviceGroupLink.device_id == device_id).delete()
+
         session.delete(device)
         session.commit()
+        return device
 
 
     def create_device_group(self, device_group: DeviceGroup):
@@ -36,14 +43,18 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
     def delete_device_group(self, group_id: int):
         session = self.database_connector.get_session()
         device_group = self.find_device_group_by_id(group_id)
+
+        session.query(DeviceGroupLink).filter(DeviceGroupLink.group_id == group_id).delete()
+
         session.delete(device_group)
         session.commit()
+        return device_group
 
 
-    def update_device_group(self, group_id: int, name: str):
+    def update_device_group(self, group: DeviceGroup):
         session = self.database_connector.get_session()
-        device_group = self.find_device_group_by_id(group_id)
-        device_group.name = name
+        device_group = self.find_device_group_by_id(group.id)
+        device_group.name = group.name
         session.commit()
         session.refresh(device_group)
         return device_group
@@ -72,6 +83,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
             session.add(link)
 
         session.commit()
+        return devices
 
 
     def find_device_by_id(self, device_id: int) -> Device:
@@ -82,9 +94,16 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         return device
 
 
-    def find_device_group_by_id(self, group_id: int) -> DeviceGroup:
-        statement = select(DeviceGroup).where(DeviceGroup.id == group_id)
+    def find_device_group_by_id(self, device_group_id: int) -> DeviceGroup:
+        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         device_group = self.database_connector.get_session().exec(statement).first()
         if device_group is None:
-            raise NotFoundException("DeviceGroup was not found")
+            raise NotFoundException("Device group was not found")
         return device_group
+
+
+    def find_device_list_by_id(self, group_id: int) -> List[Device]:
+        device_group = self.find_device_group_by_id(group_id)
+        if device_group is None:
+            raise NotFoundException("DeviceGroup was not found")
+        return device_group.devices

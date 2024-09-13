@@ -11,6 +11,10 @@ class CameraService(ABC):
         pass
 
     @abstractmethod
+    def get_by_generic_device_id(self, device_id: int) -> Camera:
+        pass
+
+    @abstractmethod
     def create(self, camera: Camera) -> Camera:
         pass
 

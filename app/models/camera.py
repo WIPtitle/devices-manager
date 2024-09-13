@@ -1,5 +1,16 @@
 import cv2
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Relationship
+
+from app.models.device_group import Device
+
+
+class CameraInputDto(SQLModel):
+    ip: str
+    port: int
+    username: str
+    password: str
+    path: str
+    sensibility: int  # Percentage of camera area for minimum area of motion
 
 
 class Camera(SQLModel, table=True):
@@ -9,6 +20,22 @@ class Camera(SQLModel, table=True):
     password: str
     path: str
     sensibility: int # Percentage of camera area for minimum area of motion
+    listening: bool
+
+    generic_device_id: int | None = Field(default=None, foreign_key="device.id")
+
+    @classmethod
+    def from_dto(cls, dto: CameraInputDto):
+        return cls(
+            ip=dto.ip,
+            port=dto.port,
+            username=dto.username,
+            password=dto.password,
+            path=dto.path,
+            sensibility=dto.sensibility,
+            listening=False,
+            generic_device_id=None
+        )
 
 
     def is_reachable(self):
