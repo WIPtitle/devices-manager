@@ -18,7 +18,7 @@ class DeviceGroupService(ABC):
         pass
 
     @abstractmethod
-    def update_devices_in_group(self, group_id: int, device_ids: List[int]):
+    def update_devices_in_group(self, group_id: int, device_ids: List[int]) -> List[Device]:
         pass
 
     @abstractmethod

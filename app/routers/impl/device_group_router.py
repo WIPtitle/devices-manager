@@ -1,7 +1,7 @@
 from typing import List
 
 from app.config.bindings import inject
-from app.models.device_group import DeviceGroup, Device, DeviceGroupInputDto
+from app.models.device_group import DeviceGroup, DeviceGroupInputDto
 from app.routers.router_wrapper import RouterWrapper
 from app.services.device_group.device_group_service import DeviceGroupService
 

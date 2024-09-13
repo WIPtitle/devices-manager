@@ -1,12 +1,7 @@
-import sys
-import time
 from typing import Dict
 
-from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
-from rabbitmq_sdk.event.impl.devices_manager.camera_changed_status import CameraChangedStatus
-from rabbitmq_sdk.event.impl.devices_manager.enums.camera_status import CameraStatus as RabbitCameraStatus
-
 from app.exceptions.cameras_listener_exception import CamerasListenerException
+from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.camera.cameras_listener import CamerasListener
 from app.jobs.camera.impl.camera_listener_thread import CameraListenerThread
 from app.models.camera import Camera
@@ -15,8 +10,8 @@ from app.repositories.camera.camera_repository import CameraRepository
 
 
 class CamerasListenerImpl(CamerasListener):
-    def __init__(self, rabbitmq_client: RabbitMQClient, camera_repository: CameraRepository):
-        self.rabbitmq_client = rabbitmq_client
+    def __init__(self, alarm_manager: AlarmManager, camera_repository: CameraRepository):
+        self.alarm_manager = alarm_manager
         self.camera_repository = camera_repository
         self.cameras_status: Dict[Camera, CameraStatus] = {}
         self.threads = []
@@ -65,15 +60,8 @@ class CamerasListenerImpl(CamerasListener):
         # Status changed, emit event; status changed control should happen in thread instead of bombarding this
         # callback with statuses for each frame.
         self.cameras_status[camera] = status
-        rabbit_status: RabbitCameraStatus = RabbitCameraStatus.IDLE
-        if status == CameraStatus.UNREACHABLE:
-            rabbit_status = RabbitCameraStatus.UNREACHABLE
-        elif status == CameraStatus.MOVEMENT_DETECTED:
-            rabbit_status = RabbitCameraStatus.MOVEMENT_DETECTED
-
-        print(f"Status has changed for camera on ip {camera.ip}: {status.value}")
-        sys.stdout.flush()
 
         if self.camera_repository.find_by_ip(camera.ip).listening:
-            print("Publishing event")
-            self.rabbitmq_client.publish(CameraChangedStatus(camera.ip, rabbit_status, blob, int(time.time())))
+            # Alarm manager should be interacted with only when alarm is on
+            updated_camera = self.camera_repository.find_by_ip(camera.ip)
+            self.alarm_manager.on_camera_changed_status(updated_camera.name, status, blob)

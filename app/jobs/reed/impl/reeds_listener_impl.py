@@ -3,11 +3,9 @@ import time
 from typing import Dict
 
 import RPi.GPIO as GPIO
-from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
-from rabbitmq_sdk.event.impl.devices_manager.enums.reed_status import ReedStatus as RabbitReedStatus
-from rabbitmq_sdk.event.impl.devices_manager.reed_changed_status import ReedChangedStatus
 
 from app.exceptions.reeds_listener_exception import ReedsListenerException
+from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.enums.reed_status import ReedStatus
 from app.models.reed import Reed
@@ -28,8 +26,8 @@ def read_current_status_by_reed(reed: Reed) -> ReedStatus:
 
 
 class ReedsListenerImpl(ReedsListener):
-    def __init__(self, rabbitmq_client: RabbitMQClient, reed_repository: ReedRepository):
-        self.rabbitmq_client = rabbitmq_client
+    def __init__(self, alarm_manager: AlarmManager, reed_repository: ReedRepository):
+        self.alarm_manager = alarm_manager
         self.reed_repository = reed_repository
         self.reeds_status: Dict[Reed, ReedStatus] = {}
         self.running = True
@@ -80,18 +78,12 @@ class ReedsListenerImpl(ReedsListener):
             for reed in self.reeds_status.keys():
                 current_status = read_current_status_by_reed(reed)
                 if current_status != self.reeds_status[reed]:
-                    # Status has changed, publish event
                     self.reeds_status[reed] = current_status
                     print(f"Status has changed for reed on gpio {reed.gpio_pin_number}: {current_status.value}")
 
                     if self.reed_repository.find_by_gpio_pin_number(reed.gpio_pin_number).listening:
-                        print("Publishing event")
-                        self.rabbitmq_client.publish(
-                            ReedChangedStatus(
-                                reed.gpio_pin_number,
-                                RabbitReedStatus.OPEN if current_status == ReedStatus.OPEN else RabbitReedStatus.CLOSED,
-                                int(time.time())
-                            )
-                        )
+                        # Alarm manager should be interacted with only when alarm is on
+                        updated_reed = self.reed_repository.find_by_gpio_pin_number(reed.gpio_pin_number)
+                        self.alarm_manager.on_reed_changed_status(updated_reed.name, current_status)
 
             time.sleep(1)

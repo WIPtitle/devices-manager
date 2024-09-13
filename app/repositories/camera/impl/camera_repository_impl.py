@@ -51,6 +51,7 @@ class CameraRepositoryImpl(CameraRepository):
         camera_db.password = camera.password
         camera_db.path = camera.path
         camera_db.sensibility = camera.sensibility
+        camera_db.name = camera.name
         self.database_connector.get_session().commit()
         self.database_connector.get_session().refresh(camera_db)
         return camera_db
@@ -70,7 +71,7 @@ class CameraRepositoryImpl(CameraRepository):
 
     def update_listening(self, camera: Camera, listening: bool):
         camera_db = self.find_by_ip(camera.ip)
-        camera_db.listening = camera.listening
+        camera_db.listening = listening
         self.database_connector.get_session().commit()
         self.database_connector.get_session().refresh(camera_db)
         return camera_db

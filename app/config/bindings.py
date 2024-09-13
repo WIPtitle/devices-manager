@@ -9,6 +9,8 @@ from rabbitmq_sdk.enums.service import Service
 from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
 from app.exceptions.not_implemented_exception import NotImplementedException
+from app.jobs.alarm.alarm_manager import AlarmManager
+from app.jobs.alarm.impl.alarm_manager_impl import AlarmManagerImpl
 from app.jobs.camera.cameras_listener import CamerasListener
 from app.jobs.camera.impl.cameras_listener_impl import CamerasListenerImpl
 from app.jobs.recording.impl.recordings_manager_impl import RecordingsManagerImpl
@@ -45,9 +47,10 @@ camera_repository = CameraRepositoryImpl(database_connector=database_connector)
 recording_repository = RecordingRepositoryImpl(database_connector=database_connector)
 device_group_repository = DeviceGroupRepositoryImpl(database_connector=database_connector)
 
-cameras_listener = CamerasListenerImpl(rabbitmq_client, camera_repository)
+alarm_manager = AlarmManagerImpl(rabbitmq_client)
+cameras_listener = CamerasListenerImpl(alarm_manager, camera_repository)
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
-device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository)
+device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, alarm_manager)
 
 camera_service = CameraServiceImpl(camera_repository=camera_repository, cameras_listener=cameras_listener, device_group_repository=device_group_repository)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
@@ -62,6 +65,7 @@ bindings[DeviceGroupRepository] = device_group_repository
 
 bindings[CamerasListener] = cameras_listener
 bindings[RecordingsManager] = recording_manager
+bindings[AlarmManager] = alarm_manager
 
 bindings[CameraService] = camera_service
 bindings[RecordingService] = recording_service
@@ -76,7 +80,7 @@ if is_raspberry():
     from app.services.reed.reed_service import ReedService
 
     reed_repository = ReedRepositoryImpl(database_connector=database_connector)
-    reeds_listener = ReedsListenerImpl(rabbitmq_client, reed_repository)
+    reeds_listener = ReedsListenerImpl(alarm_manager, reed_repository)
     reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener, device_group_repository=device_group_repository)
 
     device_group_service.set_reed_repository(reed_repository)

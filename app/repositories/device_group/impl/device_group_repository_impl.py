@@ -4,7 +4,6 @@ from sqlmodel import select
 
 from app.exceptions.not_found_exception import NotFoundException
 from app.models.device_group import Device, DeviceGroup, DeviceGroupLink
-from app.models.enums.device_type import DeviceType
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 
 
@@ -60,7 +59,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         return device_group
 
 
-    def update_devices_in_group(self, group_id: int, devices: list[Device]):
+    def update_devices_in_group(self, group_id: int, devices: list[Device]) -> List[Device]:
         session = self.database_connector.get_session()
 
         statement = select(DeviceGroupLink).where(DeviceGroupLink.group_id == group_id)
@@ -83,7 +82,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
             session.add(link)
 
         session.commit()
-        return devices
+        return self.find_device_list_by_id(group_id)
 
 
     def find_device_by_id(self, device_id: int) -> Device:

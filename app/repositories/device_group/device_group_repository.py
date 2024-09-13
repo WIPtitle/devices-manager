@@ -26,7 +26,7 @@ class DeviceGroupRepository(ABC):
         pass
 
     @abstractmethod
-    def update_devices_in_group(self, group_id: int, devices: List[Device]):
+    def update_devices_in_group(self, group_id: int, devices: List[Device]) -> List[Device]:
         pass
 
     @abstractmethod

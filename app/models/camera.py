@@ -1,7 +1,5 @@
 import cv2
-from sqlmodel import SQLModel, Field, Relationship
-
-from app.models.device_group import Device
+from sqlmodel import SQLModel, Field
 
 
 class CameraInputDto(SQLModel):
@@ -11,6 +9,7 @@ class CameraInputDto(SQLModel):
     password: str
     path: str
     sensibility: int  # Percentage of camera area for minimum area of motion
+    name: str
 
 
 class Camera(SQLModel, table=True):
@@ -21,6 +20,7 @@ class Camera(SQLModel, table=True):
     path: str
     sensibility: int # Percentage of camera area for minimum area of motion
     listening: bool
+    name: str
 
     generic_device_id: int | None = Field(default=None, foreign_key="device.id")
 
@@ -34,6 +34,7 @@ class Camera(SQLModel, table=True):
             path=dto.path,
             sensibility=dto.sensibility,
             listening=False,
+            name=dto.name,
             generic_device_id=None
         )
 

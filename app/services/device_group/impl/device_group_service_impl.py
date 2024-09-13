@@ -1,6 +1,7 @@
 from typing import List
 
 from app.exceptions.bad_request_exception import BadRequestException
+from app.jobs.alarm.alarm_manager import AlarmManager
 from app.models.device_group import Device, DeviceGroup
 from app.models.enums.device_type import DeviceType
 from app.repositories.camera.camera_repository import CameraRepository
@@ -10,10 +11,11 @@ from app.utils.raspberry_check import is_raspberry
 
 
 class DeviceGroupServiceImpl(DeviceGroupService):
-    def __init__(self, device_group_repository: DeviceGroupRepository, camera_repository: CameraRepository):
+    def __init__(self, device_group_repository: DeviceGroupRepository, camera_repository: CameraRepository, alarm_manager: AlarmManager):
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
         self.reed_repository = None
+        self.alarm_manager = alarm_manager
 
 
     def set_reed_repository(self, repo):
@@ -36,9 +38,8 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         return self.device_group_repository.update_device_group(group)
 
 
-    def update_devices_in_group(self, group_id: int, device_ids: List[int]):
+    def update_devices_in_group(self, group_id: int, device_ids: List[int]) -> List[Device]:
         device_entities = [self.device_group_repository.find_device_by_id(device_id) for device_id in device_ids]
-
         devices_list = self.device_group_repository.update_devices_in_group(group_id, device_entities)
         return devices_list
 
@@ -56,7 +57,6 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def start_listening(self, group_id: int) -> DeviceGroup:
-        group = self.get_device_group_by_id(group_id)
         devices = self.get_device_list_by_id(group_id)
         for device in devices:
             if device.device_type == DeviceType.RTSP_CAMERA:
@@ -68,11 +68,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                     repo: ReedRepository = self.reed_repository
                     reed = repo.find_by_generic_device_id(device.id)
                     repo.update_listening(reed, True)
-        return group
+        return self.get_device_group_by_id(group_id)
 
 
     def stop_listening(self, group_id: int) -> DeviceGroup:
-        group = self.get_device_group_by_id(group_id)
         devices = self.get_device_list_by_id(group_id)
         for device in devices:
             if device.device_type == DeviceType.RTSP_CAMERA:
@@ -84,4 +83,18 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                     repo: ReedRepository = self.reed_repository
                     reed = repo.find_by_generic_device_id(device.id)
                     repo.update_listening(reed, False)
-        return group
+
+        all_cameras = self.camera_repository.find_all()
+        all_cameras_not_listening = all(not camera.listening for camera in all_cameras)
+        if is_raspberry():
+            from app.repositories.reed.reed_repository import ReedRepository
+            repo: ReedRepository = self.reed_repository
+            all_reeds = repo.find_all()
+            all_reeds_not_listening = all(not reed.listening for reed in all_reeds)
+            if all_cameras_not_listening and all_reeds_not_listening:
+                self.alarm_manager.on_all_devices_stopped_listening()
+        else:
+            if all_cameras_not_listening:
+                self.alarm_manager.on_all_devices_stopped_listening()
+
+        return self.get_device_group_by_id(group_id)
