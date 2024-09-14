@@ -83,7 +83,7 @@ if is_raspberry():
     reeds_listener = ReedsListenerImpl(alarm_manager, reed_repository)
     reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener, device_group_repository=device_group_repository)
 
-    device_group_service.set_reed_repository(reed_repository)
+    device_group_service.set_reed_repo_and_listener(reed_repository)
 
     bindings[ReedsListener] = reeds_listener
     bindings[ReedRepository] = reed_repository

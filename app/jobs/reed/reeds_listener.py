@@ -24,3 +24,7 @@ class ReedsListener:
     @abstractmethod
     def get_status_by_reed(self, reed: Reed) -> ReedStatus:
         pass
+
+    @abstractmethod
+    def get_status_by_reed_pin(self, pin: int) -> ReedStatus:
+        pass

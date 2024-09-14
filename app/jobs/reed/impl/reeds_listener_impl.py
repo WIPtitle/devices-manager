@@ -73,6 +73,13 @@ class ReedsListenerImpl(ReedsListener):
             raise ReedsListenerException(f"Reed with pin {reed.gpio_pin_number} not being monitored")
 
 
+    def get_status_by_reed_pin(self, pin: int) -> ReedStatus:
+        for reed in self.reeds_status:
+            if reed.gpio_pin_number == pin:
+                return self.reeds_status[reed]
+        raise ReedsListenerException(f"Reed with pin {pin} not being monitored")
+
+
     def monitor_pins(self):
         while self.running:
             for reed in self.reeds_status.keys():

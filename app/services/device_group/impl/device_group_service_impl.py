@@ -15,13 +15,16 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
         self.reed_repository = None
+        self.reed_listener = None
         self.alarm_manager = alarm_manager
 
 
-    def set_reed_repository(self, repo):
+    def set_reed_repo_and_listener(self, repo, listener):
         if is_raspberry():
             from app.repositories.reed.reed_repository import ReedRepository
+            from app.jobs.reed.reeds_listener import ReedsListener
             self.reed_repository: ReedRepository = repo
+            self.reed_listener: ReedsListener = listener
 
 
     def create_device_group(self, device_group: DeviceGroup) -> DeviceGroup:
@@ -65,8 +68,13 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             elif device.device_type == DeviceType.MAGNETIC_REED:
                 if is_raspberry():
                     from app.repositories.reed.reed_repository import ReedRepository
+                    from app.jobs.reed.reeds_listener import ReedsListener
+                    from app.models.enums.reed_status import ReedStatus
                     repo: ReedRepository = self.reed_repository
+                    listener: ReedsListener = self.reed_listener
                     reed = repo.find_by_generic_device_id(device.id)
+                    if listener.get_status_by_reed_pin(reed.gpio_pin_number) == ReedStatus.OPEN:
+                        raise BadRequestException("Reed is open")
                     repo.update_listening(reed, True)
         return self.get_device_group_by_id(group_id)
 
