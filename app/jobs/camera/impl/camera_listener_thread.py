@@ -40,6 +40,7 @@ class CameraListenerThread(threading.Thread):
 
                 # Process only one frame every five. This is kind of a "magic" number since I don't let users
                 # set it, but most cameras will have no framerate too low problem.
+                #TODO this is relative to camera framerate, calculate with framerate as in stream
                 frame_counter = (frame_counter + 1) % 5
                 if frame_counter != 0:
                     continue
