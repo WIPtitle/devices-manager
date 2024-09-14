@@ -6,7 +6,7 @@ from app.models.enums.reed_status import ReedStatus
 
 class AlarmManager:
     @abstractmethod
-    def on_camera_changed_status(self, name: str, status: CameraStatus, blob: bytes | None):
+    def on_camera_changed_status(self, camera_ip: str, name: str, status: CameraStatus, blob: bytes | None):
         pass
 
     @abstractmethod

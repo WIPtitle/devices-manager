@@ -23,6 +23,7 @@ class CameraListenerThread(threading.Thread):
             f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}")
         fgbg = cv2.createBackgroundSubtractorMOG2()
         frame_counter = 0
+        frames_with_movement = 0
 
         while self.running:
             try:
@@ -66,12 +67,18 @@ class CameraListenerThread(threading.Thread):
 
                     merged_area = (x_max - x_min) * (y_max - y_min)
                     if merged_area > self.camera.sensibility / 100 * frame_area:
-                        # Enough movement found
-                        _, jpeg = cv2.imencode('.jpg', frame)
-                        blob = jpeg.tobytes()
-
-                        self.set_and_post_status(CameraStatus.MOVEMENT_DETECTED, blob)
-                        continue
+                        frames_with_movement += 1
+                        # We consider it movement only if there is movement for at least 3 consecutive frames, otherwise
+                        # we discard it as noise
+                        if frames_with_movement >= 3:
+                            _, jpeg = cv2.imencode('.jpg', frame)
+                            blob = jpeg.tobytes()
+                            self.set_and_post_status(CameraStatus.MOVEMENT_DETECTED, blob)
+                            continue
+                    else:
+                        frames_with_movement = 0
+                else:
+                    frames_with_movement = 0
 
                 # If we reach the end it means no movement big enough was found so camera returns in idle status
                 self.set_and_post_status(CameraStatus.IDLE)

@@ -55,6 +55,8 @@ device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_re
 camera_service = CameraServiceImpl(camera_repository=camera_repository, cameras_listener=cameras_listener, device_group_repository=device_group_repository)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
 
+alarm_manager.set_recording_service(recording_service)
+
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
 bindings[DatabaseConnector] = database_connector
 bindings[RabbitMQClient] = rabbitmq_client
