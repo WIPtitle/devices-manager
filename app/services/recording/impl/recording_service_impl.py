@@ -27,9 +27,12 @@ class RecordingServiceImpl(RecordingService):
         if not camera.is_reachable():
             raise BadRequestException("Camera is not reachable")
 
-        recording = self.recording_repository.create(recording)
-        self.recording_manager.start_recording(recording)
-        return recording
+        if not self.recording_manager.is_recording(recording.camera_ip):
+            recording = self.recording_repository.create(recording)
+            self.recording_manager.start_recording(recording)
+            return recording
+        else:
+            raise BadRequestException("Recording already started")
 
 
     def stop(self, rec_id: int) -> Recording:

@@ -14,5 +14,5 @@ class AlarmManager:
         pass
 
     @abstractmethod
-    def on_all_devices_stopped_listening(self):
+    def stop_alarm(self):
         pass

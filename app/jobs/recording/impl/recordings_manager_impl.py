@@ -31,6 +31,12 @@ class RecordingsManagerImpl(RecordingsManager):
         self.threads = []
 
 
+    def is_recording(self, camera_ip: str):
+        for thread in self.threads:
+            if thread.recording.camera_ip == camera_ip:
+                return True
+        return False
+
     def start_recording(self, recording: Recording):
         camera = self.camera_repository.find_by_ip(recording.camera_ip)
 

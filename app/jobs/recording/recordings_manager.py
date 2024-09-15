@@ -5,6 +5,10 @@ from app.models.recording import Recording
 
 class RecordingsManager:
     @abstractmethod
+    def is_recording(self, camera_ip: str):
+        pass
+
+    @abstractmethod
     def start_recording(self, recording: Recording):
         pass
 

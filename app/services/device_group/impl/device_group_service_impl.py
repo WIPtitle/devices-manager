@@ -100,9 +100,9 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             all_reeds = repo.find_all()
             all_reeds_not_listening = all(not reed.listening for reed in all_reeds)
             if all_cameras_not_listening and all_reeds_not_listening:
-                self.alarm_manager.on_all_devices_stopped_listening()
+                self.alarm_manager.stop_alarm()
         else:
             if all_cameras_not_listening:
-                self.alarm_manager.on_all_devices_stopped_listening()
+                self.alarm_manager.stop_alarm()
 
         return self.get_device_group_by_id(group_id)
