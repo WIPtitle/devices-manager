@@ -20,7 +20,7 @@ class DeviceGroupRouter(RouterWrapper):
             return self.device_group_service.create_device_group(device_group)
 
 
-        @self.router.get("/")
+        @self.router.get("/{group_id}")
         def get_device_group(group_id: int):
             return self.device_group_service.get_device_group_by_id(group_id)
 

@@ -1,7 +1,7 @@
 from typing import Sequence
 
 from app.config.bindings import inject
-from app.models.recording import Recording, RecordingInputDto
+from app.models.recording import Recording
 from app.routers.router_wrapper import RouterWrapper
 from app.services.recording.recording_service import RecordingService
 
@@ -18,18 +18,6 @@ class RecordingRouter(RouterWrapper):
         @self.router.get("/{rec_id}")
         def get_recording_by_id(rec_id: int) -> Recording:
             return self.recording_service.get_by_id(rec_id)
-
-
-        @self.router.post("/", operation_id="create_recording_slash")
-        @self.router.post("", operation_id="create_recording_without_slash")
-        def create_recording(recording: RecordingInputDto) -> Recording:
-            recording = Recording.from_dto(recording)
-            return self.recording_service.create(recording)
-
-
-        @self.router.put("/stop/{rec_id}")
-        def stop_recording(rec_id: int) -> Recording:
-            return self.recording_service.stop(rec_id)
 
 
         @self.router.delete("/{rec_id}")
