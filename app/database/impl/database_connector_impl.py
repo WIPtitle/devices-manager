@@ -21,6 +21,7 @@ class DatabaseConnectorImpl(DatabaseConnector):
         SQLModel.metadata.create_all(self.engine)
         if is_raspberry():
             from app.models.reed import Reed
+            print("creating reed")
             Reed.metadata.create_all(self.engine)
 
 
