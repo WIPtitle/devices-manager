@@ -20,14 +20,11 @@ class DatabaseConnectorImpl(DatabaseConnector):
             f"postgresql://{credentials['POSTGRES_USER']}:{credentials['POSTGRES_PASSWORD']}@{database_hostname}:5432/{credentials['POSTGRES_DB']}",
             echo=True)
 
-        logging.info(f"------------------------------------------------------------------->{is_raspberry()}")
-
+        SQLModel.metadata.create_all(self.engine)
         if is_raspberry():
             from app.models.reed import Reed
-            logging.info("creating reed")
-            sys.stdout.flush()
             Reed.__table__.create(self.engine)
-        SQLModel.metadata.create_all(self.engine)
+
 
     def get_session(self):
         if self.session is None or not self.session.is_active:
