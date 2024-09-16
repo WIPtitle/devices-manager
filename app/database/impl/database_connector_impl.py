@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 
 from sqlmodel import Session, create_engine, SQLModel
 
@@ -19,13 +20,13 @@ class DatabaseConnectorImpl(DatabaseConnector):
             f"postgresql://{credentials['POSTGRES_USER']}:{credentials['POSTGRES_PASSWORD']}@{database_hostname}:5432/{credentials['POSTGRES_DB']}",
             echo=True)
 
-        print(f"------------------------------------------------------------------->{is_raspberry()}")
+        logging.info(f"------------------------------------------------------------------->{is_raspberry()}")
 
         if is_raspberry():
             from app.models.reed import Reed
-            print("creating reed")
+            logging.info("creating reed")
             sys.stdout.flush()
-            Reed.metadata.create_all(self.engine)
+            Reed.__table__.create(self.engine)
         SQLModel.metadata.create_all(self.engine)
 
     def get_session(self):
