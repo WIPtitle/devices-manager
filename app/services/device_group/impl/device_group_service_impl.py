@@ -59,7 +59,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         return self.device_group_repository.find_device_list_by_id(group_id)
 
 
-    def start_listening(self, group_id: int) -> DeviceGroup:
+    def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
         devices = self.get_device_list_by_id(group_id)
         for device in devices:
             if device.device_type == DeviceType.RTSP_CAMERA:
@@ -73,9 +73,14 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                     repo: ReedRepository = self.reed_repository
                     listener: ReedsListener = self.reed_listener
                     reed = repo.find_by_generic_device_id(device.id)
+
+                    # If force listening is true we ignore the open reeds and start listening on the others
                     if listener.get_status_by_reed_pin(reed.gpio_pin_number) == ReedStatus.OPEN:
-                        raise BadRequestException("Reed is open")
-                    repo.update_listening(reed, True)
+                        if not force_listening:
+                            raise BadRequestException("Reed is open")
+                    else:
+                        repo.update_listening(reed, True)
+
         return self.get_device_group_by_id(group_id)
 
 

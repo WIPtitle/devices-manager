@@ -46,8 +46,8 @@ class DeviceGroupRouter(RouterWrapper):
 
 
         @self.router.post("/{group_id}/start-listening")
-        def start_listening(group_id: int):
-            return self.device_group_service.start_listening(group_id)
+        def start_listening(group_id: int, force_listening: bool):
+            return self.device_group_service.start_listening(group_id, force_listening)
 
 
         @self.router.post("/{group_id}/stop-listening")
