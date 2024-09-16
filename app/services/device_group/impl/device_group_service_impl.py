@@ -75,7 +75,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                     reed = repo.find_by_generic_device_id(device.id)
 
                     # If force listening is true we ignore the open reeds and start listening on the others
-                    if listener.get_status_by_reed_pin(reed.gpio_pin_number) == ReedStatus.OPEN:
+                    if listener.get_status_by_reed(reed) == ReedStatus.OPEN:
                         if not force_listening:
                             raise BadRequestException("Reed is open")
                     else:
