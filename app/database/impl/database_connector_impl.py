@@ -1,4 +1,5 @@
 import os
+import sys
 
 from sqlmodel import Session, create_engine, SQLModel
 
@@ -23,6 +24,7 @@ class DatabaseConnectorImpl(DatabaseConnector):
         if is_raspberry():
             from app.models.reed import Reed
             print("creating reed")
+            sys.stdout.flush()
             Reed.metadata.create_all(self.engine)
         SQLModel.metadata.create_all(self.engine)
 
