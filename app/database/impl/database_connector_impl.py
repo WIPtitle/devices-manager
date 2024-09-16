@@ -18,7 +18,7 @@ class DatabaseConnectorImpl(DatabaseConnector):
         self.session = None
         self.engine = create_engine(
             f"postgresql://{credentials['POSTGRES_USER']}:{credentials['POSTGRES_PASSWORD']}@{database_hostname}:5432/{credentials['POSTGRES_DB']}",
-            echo=True)
+            echo=False)
 
         try:
             SQLModel.metadata.create_all(self.engine)

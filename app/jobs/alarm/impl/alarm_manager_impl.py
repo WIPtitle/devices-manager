@@ -40,6 +40,7 @@ class AlarmManagerImpl(AlarmManager):
 
 
     def on_camera_changed_status(self, camera_ip: str, camera_name: str, status: CameraStatus, blob: bytes | None):
+        print(f"Changed status camera received: {status}, ALARM: {self.alarm}")
         if status == CameraStatus.MOVEMENT_DETECTED:
             # Record every movement even if alarm is already started
             try:
@@ -54,6 +55,7 @@ class AlarmManagerImpl(AlarmManager):
 
 
     def on_reed_changed_status(self, reed_name: str, status: ReedStatus):
+        print(f"Changed status reed received: {status}, ALARM: {self.alarm}")
         if status == ReedStatus.OPEN and self.alarm == False:
             self.rabbitmq_client.publish(ReedAlarm(reed_name, int(time.time())))
             self.alarm = True
