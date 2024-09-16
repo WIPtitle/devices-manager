@@ -1,4 +1,5 @@
 from typing import List
+from fastapi import Query
 
 from app.config.bindings import inject
 from app.models.device_group import DeviceGroup, DeviceGroupInputDto
@@ -46,7 +47,7 @@ class DeviceGroupRouter(RouterWrapper):
 
 
         @self.router.post("/{group_id}/start-listening")
-        def start_listening(group_id: int, force_listening: bool):
+        def start_listening(group_id: int, force_listening: bool = Query(...)):
             return self.device_group_service.start_listening(group_id, force_listening)
 
 
