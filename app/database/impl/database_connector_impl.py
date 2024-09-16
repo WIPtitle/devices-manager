@@ -12,7 +12,7 @@ from app.utils.read_credentials import read_credentials
 class DatabaseConnectorImpl(DatabaseConnector):
     def __init__(self):
         database_hostname = os.getenv('DATABASE_HOSTNAME')
-        credentials_file = os.getenv('PG_CREDENTIALS_FILE')
+        credentials_file = os.getenv('PG_CREDENTIALS')
         credentials = read_credentials(credentials_file)
 
         self.session = None
