@@ -18,6 +18,8 @@ class DatabaseConnectorImpl(DatabaseConnector):
             f"postgresql://{credentials['POSTGRES_USER']}:{credentials['POSTGRES_PASSWORD']}@{database_hostname}:5432/{credentials['POSTGRES_DB']}",
             echo=True)
 
+        print(f"------------------------------------------------------------------->{is_raspberry()}")
+
         if is_raspberry():
             from app.models.reed import Reed
             print("creating reed")
