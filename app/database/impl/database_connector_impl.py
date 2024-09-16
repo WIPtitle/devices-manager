@@ -3,6 +3,7 @@ import os
 from sqlmodel import Session, create_engine, SQLModel
 
 from app.database.database_connector import DatabaseConnector
+from app.utils.raspberry_check import is_raspberry
 from app.utils.read_credentials import read_credentials
 
 
@@ -17,6 +18,8 @@ class DatabaseConnectorImpl(DatabaseConnector):
             f"postgresql://{credentials['POSTGRES_USER']}:{credentials['POSTGRES_PASSWORD']}@{database_hostname}:5432/{credentials['POSTGRES_DB']}",
             echo=True)
 
+        if is_raspberry():
+            from app.models.reed import Reed
         SQLModel.metadata.create_all(self.engine)
 
     def get_session(self):
