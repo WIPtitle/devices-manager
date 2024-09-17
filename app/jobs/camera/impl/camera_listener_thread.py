@@ -75,7 +75,7 @@ class CameraListenerThread(threading.Thread):
                                 blob = jpeg.tobytes()
                             # We consider it movement only if there is movement for at least 3 consecutive frames, otherwise
                             # we discard it as noise
-                            if frames_with_movement >= 3:
+                            if frames_with_movement >= 6:
                                 self.set_and_post_status(CameraStatus.MOVEMENT_DETECTED, blob)
                                 continue
                         else:
