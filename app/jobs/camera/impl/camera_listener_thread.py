@@ -19,6 +19,8 @@ class CameraListenerThread(threading.Thread):
 
 
     def run(self):
+        global blob
+
         cap = cv2.VideoCapture(
             f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}")
         fgbg = cv2.createBackgroundSubtractorMOG2()
@@ -67,11 +69,13 @@ class CameraListenerThread(threading.Thread):
                         merged_area = (x_max - x_min) * (y_max - y_min)
                         if merged_area > self.camera.sensibility / 100 * frame_area:
                             frames_with_movement += 1
+                            if frames_with_movement == 1:
+                                # Save blob on first frame, send it on third or discard it if movement not continuous
+                                _, jpeg = cv2.imencode('.jpg', frame)
+                                blob = jpeg.tobytes()
                             # We consider it movement only if there is movement for at least 3 consecutive frames, otherwise
                             # we discard it as noise
                             if frames_with_movement >= 3:
-                                _, jpeg = cv2.imencode('.jpg', frame)
-                                blob = jpeg.tobytes()
                                 self.set_and_post_status(CameraStatus.MOVEMENT_DETECTED, blob)
                                 continue
                         else:
