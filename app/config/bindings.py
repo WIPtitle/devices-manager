@@ -54,7 +54,7 @@ reed_repository = ReedRepositoryImpl(database_connector=database_connector)
 recording_repository = RecordingRepositoryImpl(database_connector=database_connector)
 device_group_repository = DeviceGroupRepositoryImpl(database_connector=database_connector)
 
-alarm_manager = AlarmManagerImpl(rabbitmq_client)
+alarm_manager = AlarmManagerImpl(rabbitmq_client, device_group_repository)
 reeds_listener = ReedsListenerImpl(alarm_manager, reed_repository)
 cameras_listener = CamerasListenerImpl(alarm_manager, camera_repository)
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)

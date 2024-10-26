@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.cameras_listener_exception import CamerasListenerException
+from app.exceptions.conflict_request_exception import ConflictException
 from app.exceptions.internal_error_exception import InternalErrorException
 from app.exceptions.not_found_exception import NotFoundException
 from app.exceptions.not_implemented_exception import NotImplementedException
@@ -56,6 +57,12 @@ async def reeds_listener_exception_handler(request: Request, exc: ReedsListenerE
 async def not_implemented_exception_handler(request: Request, exc: NotImplementedException):
     return JSONResponse(
         status_code=501,
+        content={"message": exc.message},
+    )
+
+async def conflict_exception_handler(request: Request, exc: ConflictException):
+    return JSONResponse(
+        status_code=409,
         content={"message": exc.message},
     )
 

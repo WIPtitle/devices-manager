@@ -1,5 +1,6 @@
 from typing import Sequence
 
+from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.device_group import Device
@@ -41,6 +42,12 @@ class ReedServiceImpl(ReedService):
     def update(self, gpio_pin_number: int, reed: Reed) -> Reed:
         if reed.gpio_pin_number != gpio_pin_number:
             raise UnupdateableDataException("Can't update gpio_pin_number")
+
+        if reed.listening:
+            raise BadRequestException("Can't set listening here")
+
+        if self.reed_repository.find_by_gpio_pin_number(gpio_pin_number).listening:
+            raise BadRequestException("Can't update while listening")
 
         reed = self.reed_repository.update(reed)
         self.reeds_listener.update_reed(reed)

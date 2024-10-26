@@ -64,4 +64,4 @@ class CamerasListenerImpl(CamerasListener):
         if self.camera_repository.find_by_ip(camera.ip).listening:
             # Alarm manager should be interacted with only when alarm is on
             updated_camera = self.camera_repository.find_by_ip(camera.ip)
-            self.alarm_manager.on_camera_changed_status(updated_camera.ip, updated_camera.name, status, blob)
+            self.alarm_manager.on_camera_changed_status(updated_camera.generic_device_id, updated_camera.ip, updated_camera.name, status, blob)

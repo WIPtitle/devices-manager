@@ -41,7 +41,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
 
     def delete_device_group(self, group_id: int):
         session = self.database_connector.get_session()
-        device_group = self.find_device_group_by_id(group_id)
+        device_group = self.find_device_group_by_group_id(group_id)
 
         session.query(DeviceGroupLink).filter(DeviceGroupLink.group_id == group_id).delete()
 
@@ -52,7 +52,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
 
     def update_device_group(self, group: DeviceGroup):
         session = self.database_connector.get_session()
-        device_group = self.find_device_group_by_id(group.id)
+        device_group = self.find_device_group_by_group_id(group.id)
         device_group.name = group.name
         session.commit()
         session.refresh(device_group)
@@ -93,7 +93,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         return device
 
 
-    def find_device_group_by_id(self, device_group_id: int) -> DeviceGroup:
+    def find_device_group_by_group_id(self, device_group_id: int) -> DeviceGroup:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         device_group = self.database_connector.get_session().exec(statement).first()
         if device_group is None:
@@ -101,8 +101,14 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         return device_group
 
 
+    def find_device_group_list_by_device_id(self, device_id: int) -> List[DeviceGroup]:
+        statement = select(DeviceGroup).join(DeviceGroupLink).where(DeviceGroupLink.device_id == device_id)
+        device_groups = self.database_connector.get_session().exec(statement)
+        return device_groups
+
+
     def find_device_list_by_id(self, group_id: int) -> List[Device]:
-        device_group = self.find_device_group_by_id(group_id)
+        device_group = self.find_device_group_by_group_id(group_id)
         if device_group is None:
             raise NotFoundException("DeviceGroup was not found")
         return device_group.devices

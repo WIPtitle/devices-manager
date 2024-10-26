@@ -1,6 +1,12 @@
 from typing import List
+import sched
+import threading
+import time
+
+from click import argument
 
 from app.exceptions.bad_request_exception import BadRequestException
+from app.exceptions.conflict_request_exception import ConflictException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.device_group import Device, DeviceGroup
@@ -36,6 +42,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
     def update_device_group(self, group_id: int, group: DeviceGroup) -> DeviceGroup:
         if group_id != group.id:
             raise BadRequestException("Can't update group id")
+        if group.listening:
+            raise BadRequestException("Can't set listening value here")
+        if self.device_group_repository.find_device_group_by_group_id(group_id).listening:
+            raise BadRequestException("Can't update while listening")
         return self.device_group_repository.update_device_group(group)
 
 
@@ -50,7 +60,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def get_device_group_by_id(self, group_id: int) -> DeviceGroup:
-        return self.device_group_repository.find_device_group_by_id(group_id)
+        return self.device_group_repository.find_device_group_by_group_id(group_id)
 
 
     def get_device_list_by_id(self, group_id: int) -> List[Device]:
@@ -58,6 +68,18 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
+        scheduler = sched.scheduler(time.time, time.sleep)
+        scheduler.enter(self.get_device_group_by_id(group_id).wait_to_start_alarm, 1, self.do_start_listening, argument=(group_id, force_listening))
+        threading.Thread(target=scheduler.run).start()
+        return self.get_device_group_by_id(group_id)
+
+
+    def stop_listening(self, group_id: int) -> DeviceGroup:
+        self.do_stop_listening(group_id)
+        return self.get_device_group_by_id(group_id)
+
+
+    def do_start_listening(self, group_id: int, force_listening: bool):
         devices = self.get_device_list_by_id(group_id)
         for device in devices:
             if device.device_type == DeviceType.RTSP_CAMERA:
@@ -69,14 +91,15 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                 # If force listening is true we ignore the open reeds and start listening on the others
                 if self.reed_listener.get_status_by_reed(reed) == ReedStatus.OPEN:
                     if not force_listening:
-                        raise BadRequestException("Reed is open")
+                        raise ConflictException("A reed is open")
                 else:
                     self.reed_repository.update_listening(reed, True)
+        group = self.device_group_repository.find_device_group_by_group_id(group_id)
+        group.listening = True
+        self.device_group_repository.update_device_group(group)
 
-        return self.get_device_group_by_id(group_id)
 
-
-    def stop_listening(self, group_id: int) -> DeviceGroup:
+    def do_stop_listening(self, group_id: int):
         devices = self.get_device_list_by_id(group_id)
         for device in devices:
             if device.device_type == DeviceType.RTSP_CAMERA:
@@ -93,4 +116,6 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         if all_cameras_not_listening and all_reeds_not_listening:
             self.alarm_manager.stop_alarm()
 
-        return self.get_device_group_by_id(group_id)
+        group = self.device_group_repository.find_device_group_by_group_id(group_id)
+        group.listening = False
+        self.device_group_repository.update_device_group(group)

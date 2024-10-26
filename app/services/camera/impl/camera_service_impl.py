@@ -52,6 +52,12 @@ class CameraServiceImpl(CameraService):
         if camera.ip != ip:
             raise UnupdateableDataException("Can't update ip")
 
+        if camera.listening:
+            raise BadRequestException("Can't set listening here")
+
+        if self.camera_repository.find_by_ip(ip).listening:
+            raise BadRequestException("Can't update while listening")
+
         # Stop user from updating to an unreachable camera.
         # A camera can still become unreachable but prevent creating one that already is.
         if not camera.is_reachable():

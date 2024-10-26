@@ -12,11 +12,16 @@ class DeviceGroupLink(SQLModel, table=True):
 
 class DeviceGroupInputDto(SQLModel):
     name: str
+    wait_to_start_alarm: int
+    wait_to_fire_alarm: int
 
 
 class DeviceGroup(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
+    wait_to_start_alarm: int
+    wait_to_fire_alarm: int
+    listening: bool
     devices: List["Device"] | None = Relationship(back_populates="groups", link_model=DeviceGroupLink)
 
     @classmethod
@@ -24,6 +29,9 @@ class DeviceGroup(SQLModel, table=True):
         return cls(
             id=None,
             name=dto.name,
+            wait_to_start_alarm=dto.wait_to_start_alarm,
+            wait_to_fire_alarm=dto.wait_to_fire_alarm,
+            listening=False,
             devices=[]
         )
 
