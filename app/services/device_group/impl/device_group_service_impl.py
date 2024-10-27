@@ -16,6 +16,7 @@ from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.reed.reed_repository import ReedRepository
 from app.services.device_group.device_group_service import DeviceGroupService
+from app.utils.delayed_execution import delay_execution
 
 
 class DeviceGroupServiceImpl(DeviceGroupService):
@@ -68,9 +69,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
-        scheduler = sched.scheduler(time.time, time.sleep)
-        scheduler.enter(self.get_device_group_by_id(group_id).wait_to_start_alarm, 1, self.do_start_listening, argument=(group_id, force_listening))
-        threading.Thread(target=scheduler.run).start()
+        delay_execution(func=self.do_start_listening, args=(group_id, force_listening), delay_seconds=self.get_device_group_by_id(group_id))
         return self.get_device_group_by_id(group_id)
 
 
