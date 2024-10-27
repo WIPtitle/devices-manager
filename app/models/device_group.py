@@ -2,6 +2,7 @@ from typing import List
 
 from sqlmodel import SQLModel, Field, Relationship
 
+from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.enums.device_type import DeviceType
 
 
@@ -21,7 +22,7 @@ class DeviceGroup(SQLModel, table=True):
     name: str
     wait_to_start_alarm: int
     wait_to_fire_alarm: int
-    listening: bool
+    status: DeviceGroupStatus
     devices: List["Device"] | None = Relationship(back_populates="groups", link_model=DeviceGroupLink)
 
     @classmethod
@@ -31,7 +32,7 @@ class DeviceGroup(SQLModel, table=True):
             name=dto.name,
             wait_to_start_alarm=dto.wait_to_start_alarm,
             wait_to_fire_alarm=dto.wait_to_fire_alarm,
-            listening=False,
+            status=DeviceGroupStatus.IDLE,
             devices=[]
         )
 

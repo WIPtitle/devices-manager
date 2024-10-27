@@ -5,6 +5,7 @@ from app.exceptions.conflict_request_exception import ConflictException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.device_group import Device, DeviceGroup
+from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.enums.device_type import DeviceType
 from app.models.enums.reed_status import ReedStatus
 from app.repositories.camera.camera_repository import CameraRepository
@@ -38,10 +39,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
     def update_device_group(self, group_id: int, group: DeviceGroup) -> DeviceGroup:
         if group_id != group.id:
             raise BadRequestException("Can't update group id")
-        if group.listening:
+        if group.status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Can't set listening value here")
-        if self.device_group_repository.find_device_group_by_group_id(group_id).listening:
-            raise BadRequestException("Can't update while listening")
+        if self.device_group_repository.find_device_group_by_group_id(group_id).status != DeviceGroupStatus.IDLE:
+            raise BadRequestException("Can't update while not idle")
         return self.device_group_repository.update_device_group(group)
 
 
@@ -64,7 +65,18 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
+        all_groups = self.device_group_repository.find_all_devices_groups()
+        one_group_not_idle = any(group.status != DeviceGroupStatus.IDLE for group in all_groups)
+        # This stops users from having more than one group that listens
+        if one_group_not_idle:
+            raise ConflictException("One or more groups are not idle")
+
         delay_execution(func=self.do_start_listening, args=(group_id, force_listening), delay_seconds=self.get_device_group_by_id(group_id))
+
+        group = self.get_device_group_by_id(group_id)
+        group.status = DeviceGroupStatus.WAITING_TO_START_LISTENING
+        self.device_group_repository.update_device_group(group)
+
         return self.get_device_group_by_id(group_id)
 
 
@@ -89,7 +101,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                 else:
                     self.reed_repository.update_listening(reed, True)
         group = self.device_group_repository.find_device_group_by_group_id(group_id)
-        group.listening = True
+        group.status = DeviceGroupStatus.LISTENING
         self.device_group_repository.update_device_group(group)
 
 
@@ -103,13 +115,9 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                 reed = self.reed_repository.find_by_generic_device_id(device.id)
                 self.reed_repository.update_listening(reed, False)
 
-        all_cameras = self.camera_repository.find_all()
-        all_cameras_not_listening = all(not camera.listening for camera in all_cameras)
-        all_reeds = self.reed_repository.find_all()
-        all_reeds_not_listening = all(not reed.listening for reed in all_reeds)
-        if all_cameras_not_listening and all_reeds_not_listening:
-            self.alarm_manager.stop_alarm()
+        # Emit a stop alarm event even if not in alarm state, at worst it will be ignored
+        self.alarm_manager.stop_alarm()
 
         group = self.device_group_repository.find_device_group_by_group_id(group_id)
-        group.listening = False
+        group.status = DeviceGroupStatus.IDLE
         self.device_group_repository.update_device_group(group)

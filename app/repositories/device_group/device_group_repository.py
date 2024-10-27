@@ -44,3 +44,7 @@ class DeviceGroupRepository(ABC):
     @abstractmethod
     def find_device_group_list_by_device_id(self, device_id: int) -> List[DeviceGroup]:
         pass
+
+    @abstractmethod
+    def find_all_devices_groups(self) -> List[DeviceGroup]:
+        pass

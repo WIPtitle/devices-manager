@@ -9,6 +9,7 @@ from rabbitmq_sdk.event.impl.devices_manager.reed_alarm import ReedAlarm
 from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.models.enums.camera_status import CameraStatus
+from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.enums.reed_status import ReedStatus
 from app.models.recording import Recording, RecordingInputDto
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
@@ -56,15 +57,17 @@ class AlarmManagerImpl(AlarmManager):
 
     # OTHER ALARM FUNCTIONS
 
-    # Since a device can be included in more than one device group, if more than one group is active, we use the
-    # maximum wait time
+    # Since a device can be included in more than one device group, get the wait to fire seconds number from the
+    # listening group.
     def get_wait_seconds_to_trigger(self, device_id: int) -> int:
         device_groups = self.device_group_repository.find_device_group_list_by_device_id(device_id)
-        min_wait_time_to_fire_alarm = max(group.wait_to_fire_alarm for group in device_groups)
-        return min_wait_time_to_fire_alarm
+        for group in device_groups:
+            if group.status == DeviceGroupStatus.LISTENING:
+                return group.wait_to_fire_alarm
+        return 0
 
 
-    def trigger_alarm(self, event: BaseEvent):
+    def trigger_alarm(self, event: BaseEvent, device_id: int):
         # After two minutes, stop audio and recordings. This does NOT stop devices from listening so alarm could be triggered
         # again. Only user can stop devices from listening.
         delay_execution(
@@ -72,6 +75,14 @@ class AlarmManagerImpl(AlarmManager):
             delay_seconds=120)
         self.rabbitmq_client.publish(event)
         self.alarm = True
+
+        # Find listening group and set it to alarm
+        device_groups = self.device_group_repository.find_device_group_list_by_device_id(device_id)
+        for group in device_groups:
+            if group.status == DeviceGroupStatus.LISTENING:
+                group.status = DeviceGroupStatus.ALARM
+                self.device_group_repository.update_device_group(group)
+
 
 
     # This of course gets called even if alarm is not running, I chose to emit the alarm stopped event anyway

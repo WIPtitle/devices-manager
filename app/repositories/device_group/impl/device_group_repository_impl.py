@@ -112,3 +112,9 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         if device_group is None:
             raise NotFoundException("DeviceGroup was not found")
         return device_group.devices
+
+
+    def find_all_devices_groups(self) -> List[DeviceGroup]:
+        statement = select(DeviceGroup)
+        device_groups = self.database_connector.get_session().exec(statement)
+        return device_groups
