@@ -1,12 +1,10 @@
-import sched
-import threading
 import time
 
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
+from rabbitmq_sdk.event.base_event import BaseEvent
 from rabbitmq_sdk.event.impl.devices_manager.alarm_stopped import AlarmStopped
 from rabbitmq_sdk.event.impl.devices_manager.camera_alarm import CameraAlarm
 from rabbitmq_sdk.event.impl.devices_manager.reed_alarm import ReedAlarm
-from rabbitmq_sdk.event.base_event import BaseEvent
 
 from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.alarm.alarm_manager import AlarmManager

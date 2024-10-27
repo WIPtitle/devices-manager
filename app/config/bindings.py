@@ -15,26 +15,25 @@ from app.jobs.camera.cameras_listener import CamerasListener
 from app.jobs.camera.impl.cameras_listener_impl import CamerasListenerImpl
 from app.jobs.recording.impl.recordings_manager_impl import RecordingsManagerImpl
 from app.jobs.recording.recordings_manager import RecordingsManager
+from app.jobs.reed.impl.reeds_listener_impl import ReedsListenerImpl
+from app.jobs.reed.reeds_listener import ReedsListener
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.camera.impl.camera_repository_impl import CameraRepositoryImpl
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.device_group.impl.device_group_repository_impl import DeviceGroupRepositoryImpl
 from app.repositories.recording.impl.recording_repository_impl import RecordingRepositoryImpl
 from app.repositories.recording.recording_repository import RecordingRepository
+from app.repositories.reed.impl.reed_repository_impl import ReedRepositoryImpl
+from app.repositories.reed.reed_repository import ReedRepository
 from app.services.camera.camera_service import CameraService
 from app.services.camera.impl.camera_service_impl import CameraServiceImpl
 from app.services.device_group.device_group_service import DeviceGroupService
 from app.services.device_group.impl.device_group_service_impl import DeviceGroupServiceImpl
 from app.services.recording.impl.recording_service_impl import RecordingServiceImpl
 from app.services.recording.recording_service import RecordingService
-from app.utils.read_credentials import read_credentials
-from app.jobs.reed.impl.reeds_listener_impl import ReedsListenerImpl
-from app.jobs.reed.reeds_listener import ReedsListener
-from app.repositories.reed.impl.reed_repository_impl import ReedRepositoryImpl
-from app.repositories.reed.reed_repository import ReedRepository
 from app.services.reed.impl.reed_service_impl import ReedServiceImpl
 from app.services.reed.reed_service import ReedService
-
+from app.utils.read_credentials import read_credentials
 
 bindings = { }
 

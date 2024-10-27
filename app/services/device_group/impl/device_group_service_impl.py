@@ -1,9 +1,4 @@
 from typing import List
-import sched
-import threading
-import time
-
-from click import argument
 
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.conflict_request_exception import ConflictException

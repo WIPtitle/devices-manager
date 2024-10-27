@@ -1,6 +1,7 @@
 import sched
-import time
 import threading
+import time
+
 
 def delay_execution(func, args=(), delay_seconds: int = 0):
     scheduler = sched.scheduler(time.time, time.sleep)

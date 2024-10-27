@@ -1,6 +1,4 @@
 import os
-import sys
-import logging
 
 from sqlmodel import Session, create_engine, SQLModel
 

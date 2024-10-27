@@ -1,4 +1,5 @@
 from typing import List
+
 from fastapi import Query
 
 from app.config.bindings import inject
