@@ -2,7 +2,10 @@ import threading
 import time
 from typing import Dict, Tuple
 
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except:
+    from app.models.mock.GpioMock import GpioMock as GPIO
 
 from app.exceptions.reeds_listener_exception import ReedsListenerException
 from app.jobs.alarm.alarm_manager import AlarmManager

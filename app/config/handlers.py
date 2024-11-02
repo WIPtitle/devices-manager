@@ -1,6 +1,7 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
+from app.exceptions.authentication_exception import AuthenticationException
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.cameras_listener_exception import CamerasListenerException
 from app.exceptions.conflict_request_exception import ConflictException
@@ -63,6 +64,12 @@ async def not_implemented_exception_handler(request: Request, exc: NotImplemente
 async def conflict_exception_handler(request: Request, exc: ConflictException):
     return JSONResponse(
         status_code=409,
+        content={"message": exc.message},
+    )
+
+async def authentication_exception_handler(request: Request, exc: AuthenticationException):
+    return JSONResponse(
+        status_code=401,
         content={"message": exc.message},
     )
 

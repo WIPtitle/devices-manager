@@ -1,6 +1,9 @@
 from enum import Enum
 
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except:
+    from app.models.mock.GpioMock import GpioMock as GPIO
 
 
 class GpioValue(str, Enum):
