@@ -6,6 +6,7 @@ from rabbitmq_sdk.client.impl.rabbitmq_client_impl import RabbitMQClientImpl
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.enums.service import Service
 
+from app.clients.auth_client import AuthClient
 from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
 from app.exceptions.not_implemented_exception import NotImplementedException
@@ -82,6 +83,8 @@ bindings[CameraService] = camera_service
 bindings[RecordingService] = recording_service
 bindings[DeviceGroupService] = device_group_service
 bindings[ReedService] = reed_service
+
+bindings[AuthClient] = AuthClient()
 
 
 def resolve(interface):

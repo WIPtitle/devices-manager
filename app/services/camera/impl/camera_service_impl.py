@@ -69,6 +69,9 @@ class CameraServiceImpl(CameraService):
 
 
     def delete_by_ip(self, ip: str) -> Camera:
+        if self.camera_repository.find_by_ip(ip).listening:
+            raise BadRequestException("Can't delete while listening")
+
         camera = self.camera_repository.delete_by_ip(ip)
         to_delete = self.device_group_repository.delete_device(camera.generic_device.id)
         self.device_group_repository.delete_device(to_delete.id)

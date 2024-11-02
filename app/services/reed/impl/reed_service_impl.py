@@ -55,6 +55,9 @@ class ReedServiceImpl(ReedService):
 
 
     def delete_by_pin(self, gpio_pin_number: int) -> Reed:
+        if self.reed_repository.find_by_gpio_pin_number(gpio_pin_number).listening:
+            raise BadRequestException("Can't delete while listening")
+
         reed = self.reed_repository.delete_by_gpio_pin_number(gpio_pin_number)
         to_delete = self.device_group_repository.delete_device_group(reed.generic_device.id)
         self.device_group_repository.delete_device(to_delete.id)
