@@ -1,3 +1,4 @@
+import time
 from typing import List
 
 from app.exceptions.bad_request_exception import BadRequestException
@@ -14,18 +15,23 @@ from app.repositories.reed.reed_repository import ReedRepository
 from app.services.device_group.device_group_service import DeviceGroupService
 from app.utils.delayed_execution import delay_execution
 
+from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
+from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
+
 
 class DeviceGroupServiceImpl(DeviceGroupService):
     def __init__(self, device_group_repository: DeviceGroupRepository,
                  camera_repository: CameraRepository,
                  reed_repository: ReedRepository,
                  reed_listener: ReedsListener,
-                 alarm_manager: AlarmManager):
+                 alarm_manager: AlarmManager,
+                 rabbitmq_client: RabbitMQClient):
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
         self.reed_repository = reed_repository
         self.reed_listener = reed_listener
         self.alarm_manager = alarm_manager
+        self.rabbitmq_client = rabbitmq_client
 
 
     def create_device_group(self, device_group: DeviceGroup) -> DeviceGroup:
@@ -71,6 +77,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         if one_group_not_idle:
             raise ConflictException("One or more groups are not idle")
 
+        self.rabbitmq_client.publish(AlarmWaiting(int(time.time())))
         delay_execution(func=self.do_start_listening, args=(group_id, force_listening), delay_seconds=self.get_device_group_by_id(group_id))
 
         group = self.get_device_group_by_id(group_id)

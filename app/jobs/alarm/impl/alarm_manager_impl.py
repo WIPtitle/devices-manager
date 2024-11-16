@@ -5,6 +5,7 @@ from rabbitmq_sdk.event.base_event import BaseEvent
 from rabbitmq_sdk.event.impl.devices_manager.alarm_stopped import AlarmStopped
 from rabbitmq_sdk.event.impl.devices_manager.camera_alarm import CameraAlarm
 from rabbitmq_sdk.event.impl.devices_manager.reed_alarm import ReedAlarm
+from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
 
 from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.alarm.alarm_manager import AlarmManager
@@ -40,6 +41,7 @@ class AlarmManagerImpl(AlarmManager):
             except BadRequestException:
                 print("Movement found but already recording with this camera")
             if not self.alarm:
+                self.rabbitmq_client.publish(AlarmWaiting(int(time.time())))
                 delay_execution(
                     func=self.trigger_alarm,
                     args=(CameraAlarm(camera_name, blob, int(time.time()))),
@@ -49,6 +51,7 @@ class AlarmManagerImpl(AlarmManager):
     def on_reed_changed_status(self, device_id: int, reed_name: str, status: ReedStatus):
         print(f"Changed status reed received: {status}, ALARM: {self.alarm}")
         if status == ReedStatus.OPEN and not self.alarm:
+            self.rabbitmq_client.publish(AlarmWaiting(int(time.time())))
             delay_execution(
                 func=self.trigger_alarm,
                 args=(ReedAlarm(reed_name, int(time.time()))),
