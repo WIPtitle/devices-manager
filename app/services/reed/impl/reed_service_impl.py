@@ -3,11 +3,8 @@ from typing import Sequence
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.jobs.reed.reeds_listener import ReedsListener
-from app.models.device_group import Device
-from app.models.enums.device_type import DeviceType
 from app.models.enums.reed_status import ReedStatus
 from app.models.reed import Reed
-from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.reed.reed_repository import ReedRepository
 from app.services.reed.reed_service import ReedService
 

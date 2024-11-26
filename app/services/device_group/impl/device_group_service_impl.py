@@ -30,18 +30,15 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
     def create_device_group(self, device_group: DeviceGroup) -> DeviceGroup:
         # Check devices of group for existence and for being already assigned to another group
-        for device in device_group.devices:
-            existing_device = None
+        for camera in device_group.cameras:
+            existing_camera = self.camera_repository.find_by_ip(camera.ip)
+            if existing_camera.group_id is not None:
+                raise BadRequestException(f"Camera with IP {camera.ip} is already assigned to another group")
 
-            if isinstance(device, Camera):
-                existing_device = self.camera_repository.find_by_ip(device.ip)
-            elif isinstance(device, Reed):
-                existing_device = self.reed_repository.find_by_gpio_pin_number(device.gpio_pin_number)
-
-            if not existing_device:
-                raise BadRequestException(f"Device {device} does not exist")
-            if existing_device.group_id is not None:
-                raise BadRequestException(f"Device {device} is already assigned to another group")
+        for reed in device_group.reeds:
+            existing_reed = self.reed_repository.find_by_gpio_pin_number(reed.gpio_pin_number)
+            if existing_reed.group_id is not None:
+                raise BadRequestException(f"Reed with GPIO pin number {reed.gpio_pin_number} is already assigned to another group")
 
         return self.device_group_repository.create_device_group(device_group)
 
@@ -55,28 +52,26 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             raise BadRequestException("Can't update group id")
         if group.status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Can't set listening value here")
-        if self.device_group_repository.find_device_group_by_group_id(group_id).status != DeviceGroupStatus.IDLE:
+        if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Can't update while not idle")
 
         # Check devices of group for existence and for being already assigned to another group
-        for device in group.devices:
-            existing_device = None
+        for camera in group.cameras:
+            existing_camera = self.camera_repository.find_by_ip(camera.ip)
+            if existing_camera.group_id is not None and existing_camera.group_id != group_id:
+                raise BadRequestException(f"Camera with IP {camera.ip} is already assigned to another group")
 
-            if isinstance(device, Camera):
-                existing_device = self.camera_repository.find_by_ip(device.ip)
-            elif isinstance(device, Reed):
-                existing_device = self.reed_repository.find_by_gpio_pin_number(device.gpio_pin_number)
-
-            if not existing_device:
-                raise BadRequestException(f"Device {device} does not exist")
-            if existing_device.group_id is not None and existing_device.group_id != group_id:
-                raise BadRequestException(f"Device {device} is already assigned to another group")
+        for reed in group.reeds:
+            existing_reed = self.reed_repository.find_by_gpio_pin_number(reed.gpio_pin_number)
+            if existing_reed.group_id is not None and existing_reed.group_id != group_id:
+                raise BadRequestException(
+                    f"Reed with GPIO pin number {reed.gpio_pin_number} is already assigned to another group")
 
         return self.device_group_repository.update_device_group(group)
 
 
     def get_device_group_by_id(self, group_id: int) -> DeviceGroup:
-        return self.device_group_repository.find_device_group_by_group_id(group_id)
+        return self.device_group_repository.find_device_group_by_id(group_id)
 
     '''
     def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:

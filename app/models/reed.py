@@ -16,7 +16,8 @@ class Reed(SQLModel, table=True):
     name: str
     default_value_when_closed: GpioValue
     listening: bool
-    group_id: Optional[int] = Field(foreign_key="devicegroup.id")
+    group_id: Optional[int] = Field(default=None, foreign_key="devicegroup.id")
+    group: Optional["DeviceGroup"] = Relationship(back_populates="reeds")
 
     @classmethod
     def from_dto(cls, dto: ReedInputDto):

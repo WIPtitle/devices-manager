@@ -19,7 +19,7 @@ class DeviceGroupRepository(ABC):
         pass
 
     @abstractmethod
-    def find_device_group_by_group_id(self, device_group_id: int) -> DeviceGroup:
+    def find_device_group_by_id(self, device_group_id: int) -> DeviceGroup:
         pass
 
     @abstractmethod

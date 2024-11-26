@@ -1,5 +1,7 @@
-from typing import List, Union, Optional
-from sqlmodel import SQLModel, Field, Relationship, UniqueConstraint
+from typing import List, Optional
+
+from sqlmodel import SQLModel, Field, Relationship
+
 from app.models.camera import Camera
 from app.models.reed import Reed
 from app.models.enums.device_group_status import DeviceGroupStatus
@@ -9,7 +11,8 @@ class DeviceGroupInputDto(SQLModel):
     name: str
     wait_to_start_alarm: int
     wait_to_fire_alarm: int
-    devices: List[Union[Camera, Reed]]
+    cameras: List[Camera]
+    reeds: List[Reed]
 
 
 class DeviceGroup(SQLModel, table=True):
@@ -18,9 +21,8 @@ class DeviceGroup(SQLModel, table=True):
     wait_to_start_alarm: int
     wait_to_fire_alarm: int
     status: DeviceGroupStatus
-    devices: List[Union[Camera, Reed]] = Relationship(
-        back_populates="group", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    )
+    cameras: List[Camera] = Relationship(back_populates="group")
+    reeds: List[Reed] = Relationship(back_populates="group")
 
     @classmethod
     def from_dto(cls, dto: DeviceGroupInputDto):
@@ -30,7 +32,7 @@ class DeviceGroup(SQLModel, table=True):
             wait_to_start_alarm=dto.wait_to_start_alarm,
             wait_to_fire_alarm=dto.wait_to_fire_alarm,
             status=DeviceGroupStatus.IDLE,
-            devices=dto.devices
+            cameras=dto.cameras,
+            reeds=dto.reeds
         )
-
         return group

@@ -110,4 +110,8 @@ class CameraServiceImpl(CameraService):
 
 
     def get_current_frame(self, ip: str):
-        return self.current_frames[ip]
+        if self.current_frames.get(ip) is None:
+            black_image = cv2.imencode('.webp', cv2.resize(cv2.imread(''), (640, 480)))[1].tobytes()
+            return black_image
+        else:
+            return self.current_frames[ip]

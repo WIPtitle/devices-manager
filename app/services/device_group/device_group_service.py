@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from app.models.device_group import DeviceGroup, Device
+from app.models.device_group import DeviceGroup
 
 
 class DeviceGroupService(ABC):
