@@ -15,7 +15,7 @@ class AuthClient:
     def __init__(self):
         self.auth_hostname = os.getenv("AUTH_HOSTNAME")
 
-    async def check_pin(self, token: str, pin: int):
+    async def check_pin(self, token: str, pin: str):
         url = f"http://{self.auth_hostname}:8000/user"
         try:
             async with httpx.AsyncClient() as client:
