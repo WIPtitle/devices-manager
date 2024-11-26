@@ -2,6 +2,8 @@ from typing import Sequence
 
 from app.clients.auth_client import AuthClient
 from app.config.bindings import inject
+from app.models.camera import Camera
+from app.models.reed import Reed
 from app.models.device_group import DeviceGroup, DeviceGroupInputDto
 from app.routers.router_wrapper import RouterWrapper
 from app.services.device_group.device_group_service import DeviceGroupService
@@ -26,6 +28,26 @@ class DeviceGroupRouter(RouterWrapper):
         @self.router.get("/{group_id}")
         def get_device_group(group_id: int) -> DeviceGroup:
             return self.device_group_service.get_device_group_by_id(group_id)
+
+
+        @self.router.get("/{group_id}/cameras")
+        def get_device_group(group_id: int) -> Sequence[Camera]:
+            return self.device_group_service.get_device_group_cameras_by_id(group_id)
+
+
+        @self.router.get("/{group_id}/reeds")
+        def get_device_group(group_id: int) -> Sequence[Reed]:
+            return self.device_group_service.get_device_group_reeds_by_id(group_id)
+
+
+        @self.router.put("/{group_id}/cameras")
+        def update_device_group(group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
+            return self.device_group_service.update_device_group_cameras_by_id(group_id, camera_ips)
+
+
+        @self.router.put("/{group_id}/reeds")
+        def update_device_group(group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
+            return self.device_group_service.update_device_group_reeds_by_id(group_id, reed_pins)
 
 
         @self.router.delete("/{group_id}")

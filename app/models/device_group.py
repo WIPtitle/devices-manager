@@ -11,8 +11,6 @@ class DeviceGroupInputDto(SQLModel):
     name: str
     wait_to_start_alarm: int
     wait_to_fire_alarm: int
-    cameras: List[Camera]
-    reeds: List[Reed]
 
 
 class DeviceGroup(SQLModel, table=True):
@@ -32,7 +30,7 @@ class DeviceGroup(SQLModel, table=True):
             wait_to_start_alarm=dto.wait_to_start_alarm,
             wait_to_fire_alarm=dto.wait_to_fire_alarm,
             status=DeviceGroupStatus.IDLE,
-            cameras=dto.cameras,
-            reeds=dto.reeds
+            cameras=[],
+            reeds=[]
         )
         return group
