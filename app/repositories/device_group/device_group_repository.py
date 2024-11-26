@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Sequence
 
 from app.models.device_group import DeviceGroup
 
@@ -23,5 +23,5 @@ class DeviceGroupRepository(ABC):
         pass
 
     @abstractmethod
-    def find_all_devices_groups(self) -> List[DeviceGroup]:
+    def find_all_devices_groups(self) -> Sequence[DeviceGroup]:
         pass

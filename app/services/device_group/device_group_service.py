@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import Sequence
 
 from app.models.device_group import DeviceGroup
 
@@ -19,6 +19,10 @@ class DeviceGroupService(ABC):
 
     @abstractmethod
     def get_device_group_by_id(self, group_id: int) -> DeviceGroup:
+        pass
+
+    @abstractmethod
+    def get_all_device_groups(self) -> Sequence[DeviceGroup]:
         pass
     '''
     @abstractmethod

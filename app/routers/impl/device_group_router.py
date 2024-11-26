@@ -1,10 +1,7 @@
-from typing import List
-
-from fastapi import Query, Request
+from typing import Sequence
 
 from app.clients.auth_client import AuthClient
 from app.config.bindings import inject
-from app.exceptions.authentication_exception import AuthenticationException
 from app.models.device_group import DeviceGroup, DeviceGroupInputDto
 from app.routers.router_wrapper import RouterWrapper
 from app.services.device_group.device_group_service import DeviceGroupService
@@ -20,24 +17,31 @@ class DeviceGroupRouter(RouterWrapper):
 
     def _define_routes(self):
         @self.router.post("/")
-        def create_device_group(device_group_dto: DeviceGroupInputDto):
+        @self.router.post("", operation_id="post_device_group_without_slash")
+        def create_device_group(device_group_dto: DeviceGroupInputDto) -> DeviceGroup:
             device_group = DeviceGroup.from_dto(device_group_dto)
             return self.device_group_service.create_device_group(device_group)
 
 
         @self.router.get("/{group_id}")
-        def get_device_group(group_id: int):
+        def get_device_group(group_id: int) -> DeviceGroup:
             return self.device_group_service.get_device_group_by_id(group_id)
 
 
         @self.router.delete("/{group_id}")
-        def delete_device_group(group_id: int):
+        def delete_device_group(group_id: int) -> DeviceGroup:
             return self.device_group_service.delete_device_group(group_id)
 
 
         @self.router.put("/{group_id}")
-        def update_device_group(group_id: int, group: DeviceGroup):
+        def update_device_group(group_id: int, group: DeviceGroup) -> DeviceGroup:
             return self.device_group_service.update_device_group(group_id, group)
+
+
+        @self.router.get("/")
+        @self.router.get("", operation_id="get_all_device_groups_without_slash")
+        def get_all_device_groups() -> Sequence[DeviceGroup]:
+            return self.device_group_service.get_all_device_groups()
 
         '''
         @self.router.post("/{group_id}/start-listening")

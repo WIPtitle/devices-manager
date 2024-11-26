@@ -1,3 +1,5 @@
+from typing import List, Sequence
+
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 
 from app.exceptions.bad_request_exception import BadRequestException
@@ -72,6 +74,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
     def get_device_group_by_id(self, group_id: int) -> DeviceGroup:
         return self.device_group_repository.find_device_group_by_id(group_id)
+
+
+    def get_all_device_groups(self) -> Sequence[DeviceGroup]:
+        return self.device_group_repository.find_all_devices_groups()
 
     '''
     def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:

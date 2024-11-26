@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Sequence
 
 from sqlmodel import select
 
@@ -73,7 +73,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         return device_group
 
 
-    def find_all_devices_groups(self) -> List[DeviceGroup]:
+    def find_all_devices_groups(self) -> Sequence[DeviceGroup]:
         statement = select(DeviceGroup)
         device_groups = self.database_connector.get_session().exec(statement)
         return device_groups
