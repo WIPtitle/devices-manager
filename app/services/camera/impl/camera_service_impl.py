@@ -108,11 +108,13 @@ class CameraServiceImpl(CameraService):
         fps = cap.get(cv2.CAP_PROP_FPS)
         frame_interval = int(fps / 2)  # 2 FPS will be enough
         frame_count = 0
+        fixed_size = (640, 480)
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
+            frame = cv2.resize(frame, fixed_size)
             if frame_count % frame_interval == 0:
                 ret, buffer = cv2.imencode(".webp", frame)
                 self.current_frames[ip] = buffer.tobytes()
