@@ -1,3 +1,4 @@
+import time
 from typing import Sequence
 
 from fastapi import Request
@@ -63,6 +64,7 @@ class CameraRouter(RouterWrapper):
                         b"--frame\r\n"
                         b"Content-Type: image/webp\r\n\r\n" + frame + b"\r\n"
                     )
+                    time.sleep(0.5) # Since cameras are limited to 2 FPS, we can sleep for 0.5 seconds
                     if await request.is_disconnected():
                         break
 
