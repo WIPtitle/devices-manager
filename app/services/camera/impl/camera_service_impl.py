@@ -1,3 +1,4 @@
+import threading
 from typing import Sequence
 
 import cv2
@@ -19,11 +20,20 @@ class CameraServiceImpl(CameraService):
         self.camera_repository = camera_repository
         self.cameras_listener = cameras_listener
         self.device_group_repository = device_group_repository
+        self.camera_threads = {}
+        self.current_frames = {}
 
         # When service is created on app init, start listening to already saved cameras.
         # Also start streaming process
         for camera in self.camera_repository.find_all():
             self.cameras_listener.add_camera(camera)
+            # Start streaming process
+            try:
+                thread = threading.Thread(target=self.get_frames, args=(camera.ip,), daemon=True)
+                self.camera_threads[camera.ip] = thread
+                thread.start()
+            except Exception as e:
+                print("Error starting thread for camera", camera.ip, e)
 
 
     def get_by_ip(self, ip: str) -> Camera:
@@ -105,5 +115,9 @@ class CameraServiceImpl(CameraService):
                 break
             if frame_count % frame_interval == 0:
                 ret, buffer = cv2.imencode(".webp", frame)
-                yield buffer.tobytes()
+                self.current_frames[ip] = buffer.tobytes()
             frame_count += 1
+
+
+    def get_current_frame(self, ip: str):
+        return self.current_frames[ip]

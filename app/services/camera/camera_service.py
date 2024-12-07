@@ -35,5 +35,5 @@ class CameraService(ABC):
         pass
 
     @abstractmethod
-    def get_frames(self, ip: str):
+    def get_current_frame(self, ip: str):
         pass
