@@ -24,7 +24,7 @@ class CameraRouter(RouterWrapper):
 
 
         @self.router.get("/generic/{device_id}")
-        def get_camera_by_ip(device_id: int) -> Camera:
+        def get_camera_by_device_id(device_id: int) -> Camera:
             return self.camera_service.get_by_generic_device_id(device_id)
 
 
