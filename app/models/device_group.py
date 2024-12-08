@@ -15,6 +15,7 @@ class DeviceGroupInputDto(SQLModel):
     name: str
     wait_to_start_alarm: int
     wait_to_fire_alarm: int
+    devices: List[int]
 
 
 class DeviceGroup(SQLModel, table=True):
@@ -33,7 +34,7 @@ class DeviceGroup(SQLModel, table=True):
             wait_to_start_alarm=dto.wait_to_start_alarm,
             wait_to_fire_alarm=dto.wait_to_fire_alarm,
             status=DeviceGroupStatus.IDLE,
-            devices=[]
+            devices=[Device(id=device_id) for device_id in dto.devices]
         )
 
 

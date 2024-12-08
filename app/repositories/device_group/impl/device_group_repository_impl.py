@@ -54,6 +54,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         session = self.database_connector.get_session()
         device_group = self.find_device_group_by_group_id(group.id)
         device_group.name = group.name
+        device_group.devices = group.devices
         session.commit()
         session.refresh(device_group)
         return device_group

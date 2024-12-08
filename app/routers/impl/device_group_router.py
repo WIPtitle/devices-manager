@@ -40,11 +40,6 @@ class DeviceGroupRouter(RouterWrapper):
             return self.device_group_service.update_device_group(group_id, group)
 
 
-        @self.router.post("/{group_id}/devices")
-        def update_devices_in_group(group_id: int, device_ids: List[int]):
-            return self.device_group_service.update_devices_in_group(group_id, device_ids)
-
-
         @self.router.get("/{group_id}/devices")
         def get_devices_in_group(group_id: int):
             return self.device_group_service.get_device_list_by_id(group_id)
