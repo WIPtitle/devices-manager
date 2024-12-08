@@ -13,10 +13,9 @@ from app.services.reed.reed_service import ReedService
 
 
 class ReedServiceImpl(ReedService):
-    def __init__(self, reed_repository: ReedRepository, reeds_listener: ReedsListener, device_group_repository: DeviceGroupRepository):
+    def __init__(self, reed_repository: ReedRepository, reeds_listener: ReedsListener):
         self.reed_repository = reed_repository
         self.reeds_listener = reeds_listener
-        self.device_group_repository = device_group_repository
 
         # When service is created on app init, start listening to already saved reeds.
         for reed in self.reed_repository.find_all():
@@ -27,14 +26,8 @@ class ReedServiceImpl(ReedService):
         return self.reed_repository.find_by_gpio_pin_number(gpio_pin_number)
 
 
-    def get_by_generic_device_id(self, device_id: int) -> Reed:
-        return self.reed_repository.find_by_generic_device_id(device_id)
-
-
     def create(self, reed: Reed) -> Reed:
         reed = self.reed_repository.create(reed)
-        device = self.device_group_repository.create_device(Device(device_type=DeviceType.MAGNETIC_REED))
-        reed.generic_device_id = device.id
         self.reeds_listener.add_reed(reed)
         return reed
 
@@ -59,8 +52,6 @@ class ReedServiceImpl(ReedService):
             raise BadRequestException("Can't delete while listening")
 
         reed = self.reed_repository.delete_by_gpio_pin_number(gpio_pin_number)
-        to_delete = self.device_group_repository.delete_device_group(reed.generic_device.id)
-        self.device_group_repository.delete_device(to_delete.id)
         self.reeds_listener.remove_reed(reed)
         return reed
 

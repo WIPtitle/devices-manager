@@ -23,15 +23,6 @@ class ReedRepositoryImpl(ReedRepository):
         return reed_db
 
 
-    def find_by_generic_device_id(self, device_id: int) -> Reed:
-        statement = select(Reed).where(Reed.generic_device_id == device_id)
-        reed_db = self.database_connector.get_session().exec(statement).first()
-        if reed_db is None:
-            raise NotFoundException("Reed was not found")
-
-        return reed_db
-
-
     def create(self, reed: Reed) -> Reed:
         try:
             self.find_by_gpio_pin_number(reed.gpio_pin_number)

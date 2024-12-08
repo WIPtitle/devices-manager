@@ -18,21 +18,9 @@ class DeviceGroupService(ABC):
         pass
 
     @abstractmethod
-    def update_devices_in_group(self, group_id: int, device_ids: List[int]) -> List[Device]:
-        pass
-
-    @abstractmethod
-    def get_device_by_id(self, device_id: int) -> Device:
-        pass
-
-    @abstractmethod
     def get_device_group_by_id(self, group_id: int) -> DeviceGroup:
         pass
-
-    @abstractmethod
-    def get_device_list_by_id(self, group_id: int) -> List[Device]:
-        pass
-
+    '''
     @abstractmethod
     def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
         pass
@@ -40,3 +28,4 @@ class DeviceGroupService(ABC):
     @abstractmethod
     def stop_listening(self, group_id: int) -> DeviceGroup:
         pass
+    '''

@@ -23,15 +23,6 @@ class CameraRepositoryImpl(CameraRepository):
         return camera_db
 
 
-    def find_by_generic_device_id(self, device_id: int) -> Camera:
-        statement = select(Camera).where(Camera.generic_device_id == device_id)
-        camera_db = self.database_connector.get_session().exec(statement).first()
-        if camera_db is None:
-            raise NotFoundException("Camera was not found")
-
-        return camera_db
-
-
     def create(self, camera: Camera) -> Camera:
         try:
             self.find_by_ip(camera.ip)

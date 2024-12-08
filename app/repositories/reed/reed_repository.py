@@ -10,10 +10,6 @@ class ReedRepository(ABC):
         pass
 
     @abstractmethod
-    def find_by_generic_device_id(self, device_id: int):
-        pass
-
-    @abstractmethod
     def create(self, reed: Reed) -> Reed:
         pass
 

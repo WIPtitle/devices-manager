@@ -1,5 +1,7 @@
+from typing import Optional
+
 import cv2
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Relationship
 
 
 class CameraInputDto(SQLModel):
@@ -21,8 +23,8 @@ class Camera(SQLModel, table=True):
     sensibility: int # Percentage of camera area for minimum area of motion
     listening: bool
     name: str
+    group_id: Optional[int] = Field(foreign_key="devicegroup.id")
 
-    generic_device_id: int | None = Field(default=None, foreign_key="device.id")
 
     @classmethod
     def from_dto(cls, dto: CameraInputDto):
@@ -35,7 +37,7 @@ class Camera(SQLModel, table=True):
             sensibility=dto.sensibility,
             listening=False,
             name=dto.name,
-            generic_device_id=None
+            group_id=None
         )
 
 

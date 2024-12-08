@@ -39,12 +39,7 @@ class DeviceGroupRouter(RouterWrapper):
         def update_device_group(group_id: int, group: DeviceGroup):
             return self.device_group_service.update_device_group(group_id, group)
 
-
-        @self.router.get("/{group_id}/devices")
-        def get_devices_in_group(group_id: int):
-            return self.device_group_service.get_device_list_by_id(group_id)
-
-
+        '''
         @self.router.post("/{group_id}/start-listening")
         def start_listening(request: Request, group_id: int, pin: str, force_listening: bool = Query(...)):
             if not self.auth_client.check_pin(token=request.headers.get("Authorization"), pin=pin):
@@ -57,3 +52,4 @@ class DeviceGroupRouter(RouterWrapper):
             if not self.auth_client.check_pin(token=request.headers.get("Authorization"), pin=pin):
                 raise AuthenticationException("Incorrect PIN")
             return self.device_group_service.stop_listening(group_id)
+        '''

@@ -24,11 +24,6 @@ class CameraRouter(RouterWrapper):
             return self.camera_service.get_by_ip(ip)
 
 
-        @self.router.get("/generic/{device_id}")
-        def get_camera_by_device_id(device_id: int) -> Camera:
-            return self.camera_service.get_by_generic_device_id(device_id)
-
-
         @self.router.post("/", operation_id="create_camera_slash")
         @self.router.post("", operation_id="create_camera_without_slash")
         def create_camera(camera: CameraInputDto) -> Camera:

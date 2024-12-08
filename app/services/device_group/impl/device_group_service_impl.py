@@ -1,22 +1,16 @@
-import time
-from typing import List
+from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 
 from app.exceptions.bad_request_exception import BadRequestException
-from app.exceptions.conflict_request_exception import ConflictException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.reed.reeds_listener import ReedsListener
-from app.models.device_group import Device, DeviceGroup
+from app.models.camera import Camera
+from app.models.device_group import DeviceGroup
 from app.models.enums.device_group_status import DeviceGroupStatus
-from app.models.enums.device_type import DeviceType
-from app.models.enums.reed_status import ReedStatus
+from app.models.reed import Reed
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.reed.reed_repository import ReedRepository
 from app.services.device_group.device_group_service import DeviceGroupService
-from app.utils.delayed_execution import delay_execution
-
-from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
-from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
 
 
 class DeviceGroupServiceImpl(DeviceGroupService):
@@ -35,6 +29,20 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def create_device_group(self, device_group: DeviceGroup) -> DeviceGroup:
+        # Check devices of group for existence and for being already assigned to another group
+        for device in device_group.devices:
+            existing_device = None
+
+            if isinstance(device, Camera):
+                existing_device = self.camera_repository.find_by_ip(device.ip)
+            elif isinstance(device, Reed):
+                existing_device = self.reed_repository.find_by_gpio_pin_number(device.gpio_pin_number)
+
+            if not existing_device:
+                raise BadRequestException(f"Device {device} does not exist")
+            if existing_device.group_id is not None:
+                raise BadRequestException(f"Device {device} is already assigned to another group")
+
         return self.device_group_repository.create_device_group(device_group)
 
 
@@ -49,27 +57,28 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             raise BadRequestException("Can't set listening value here")
         if self.device_group_repository.find_device_group_by_group_id(group_id).status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Can't update while not idle")
+
+        # Check devices of group for existence and for being already assigned to another group
+        for device in group.devices:
+            existing_device = None
+
+            if isinstance(device, Camera):
+                existing_device = self.camera_repository.find_by_ip(device.ip)
+            elif isinstance(device, Reed):
+                existing_device = self.reed_repository.find_by_gpio_pin_number(device.gpio_pin_number)
+
+            if not existing_device:
+                raise BadRequestException(f"Device {device} does not exist")
+            if existing_device.group_id is not None and existing_device.group_id != group_id:
+                raise BadRequestException(f"Device {device} is already assigned to another group")
+
         return self.device_group_repository.update_device_group(group)
-
-
-    def update_devices_in_group(self, group_id: int, device_ids: List[int]) -> List[Device]:
-        device_entities = [self.device_group_repository.find_device_by_id(device_id) for device_id in device_ids]
-        devices_list = self.device_group_repository.update_devices_in_group(group_id, device_entities)
-        return devices_list
-
-
-    def get_device_by_id(self, device_id: int) -> Device:
-        return self.device_group_repository.find_device_by_id(device_id)
 
 
     def get_device_group_by_id(self, group_id: int) -> DeviceGroup:
         return self.device_group_repository.find_device_group_by_group_id(group_id)
 
-
-    def get_device_list_by_id(self, group_id: int) -> List[Device]:
-        return self.device_group_repository.find_device_list_by_id(group_id)
-
-
+    '''
     def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
         all_groups = self.device_group_repository.find_all_devices_groups()
         one_group_not_idle = any(group.status != DeviceGroupStatus.IDLE for group in all_groups)
@@ -128,3 +137,4 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         group = self.device_group_repository.find_device_group_by_group_id(group_id)
         group.status = DeviceGroupStatus.IDLE
         self.device_group_repository.update_device_group(group)
+    '''

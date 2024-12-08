@@ -20,11 +20,6 @@ class ReedRouter(RouterWrapper):
             return self.reed_service.get_by_pin(gpio_pin_number)
 
 
-        @self.router.get("/generic/{device_id}")
-        def get_camera_by_ip(device_id: int) -> Reed:
-            return self.reed_service.get_by_generic_device_id(device_id)
-
-
         @self.router.post("/", operation_id="create_slash")
         @self.router.post("", operation_id="create_without_slash")
         def create_reed(reed: ReedInputDto) -> Reed:
