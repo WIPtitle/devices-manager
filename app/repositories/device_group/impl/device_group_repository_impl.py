@@ -2,6 +2,7 @@ from typing import Sequence
 
 from sqlmodel import select
 
+from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.not_found_exception import NotFoundException
 from app.models.camera import Camera
 from app.models.reed import Reed
@@ -39,6 +40,15 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
     def delete_device_group(self, group_id: int):
         session = self.database_connector.get_session()
         device_group = self.find_device_group_by_id(group_id)
+
+        # Set group_id to None for all cameras in the group
+        for camera in device_group.cameras:
+            camera.group_id = None
+
+        # Set group_id to None for all reeds in the group
+        for reed in device_group.reeds:
+            reed.group_id = None
+
         session.delete(device_group)
         session.commit()
         return device_group
@@ -72,10 +82,17 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         session = self.database_connector.get_session()
         device_group = self.find_device_group_by_id(device_group_id)
 
+        # Check and update existing cameras
+        for camera in device_group.cameras:
+            if camera.ip not in camera_ips:
+                camera.group_id = None
+
         statement = select(Camera).where(Camera.ip.in_(camera_ips))
         new_cameras = session.exec(statement).all()
 
         for camera in new_cameras:
+            if camera.group_id is not None and camera.group_id != device_group_id:
+                raise BadRequestException(f"Camera with IP {camera.ip} is already part of another group")
             camera.group_id = device_group_id
 
         device_group.cameras = new_cameras
@@ -89,10 +106,17 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         session = self.database_connector.get_session()
         device_group = self.find_device_group_by_id(device_group_id)
 
+        # Check and update existing reeds
+        for reed in device_group.reeds:
+            if reed.gpio_pin_number not in reed_pins:
+                reed.group_id = None
+
         statement = select(Reed).where(Reed.gpio_pin_number.in_(reed_pins))
         new_reeds = session.exec(statement).all()
 
         for reed in new_reeds:
+            if reed.group_id is not None and reed.group_id != device_group_id:
+                raise BadRequestException(f"Reed with GPIO pin {reed.gpio_pin_number} is already part of another group")
             reed.group_id = device_group_id
 
         device_group.reeds = new_reeds
