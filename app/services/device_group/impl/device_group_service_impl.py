@@ -1,5 +1,5 @@
 import time
-from typing import List, Sequence
+from typing import Sequence
 
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
@@ -83,8 +83,13 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         if group.status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Group is not idle")
 
+        if not force_listening:
+            reeds = self.device_group_repository.find_device_group_reeds_by_id(group_id)
+            if any(self.reed_listener.get_status_by_reed(reed) == ReedStatus.OPEN for reed in reeds):
+                raise ConflictException("A reed is open, force listening if you want to ignore it")
+
         self.rabbitmq_client.publish(AlarmWaiting(int(time.time())))
-        delay_execution(func=self.do_start_listening, args=(group_id, force_listening), delay_seconds=group.wait_to_start_alarm)
+        delay_execution(func=self.do_start_listening, args=group_id, delay_seconds=group.wait_to_start_alarm)
 
         group.status = DeviceGroupStatus.WAITING_TO_START_LISTENING
         self.device_group_repository.update_device_group(group)
@@ -100,7 +105,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         return self.get_device_group_by_id(group_id)
 
 
-    def do_start_listening(self, group_id: int, force_listening: bool):
+    def do_start_listening(self, group_id: int):
         cameras = self.get_device_group_cameras_by_id(group_id)
         reeds = self.get_device_group_reeds_by_id(group_id)
 
@@ -108,10 +113,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             self.camera_repository.update_listening(camera, True)
 
         for reed in reeds:
-            if self.reed_listener.get_status_by_reed(reed) == ReedStatus.OPEN:
-                if not force_listening:
-                    raise ConflictException("A reed is open")
-            else:
+            if self.reed_listener.get_status_by_reed(reed) != ReedStatus.OPEN:
                 self.reed_repository.update_listening(reed, True)
 
         group = self.device_group_repository.find_device_group_by_id(group_id)
