@@ -42,7 +42,7 @@ class DeviceGroupService(ABC):
     @abstractmethod
     def get_all_device_groups(self) -> Sequence[DeviceGroup]:
         pass
-    '''
+
     @abstractmethod
     def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
         pass
@@ -50,4 +50,3 @@ class DeviceGroupService(ABC):
     @abstractmethod
     def stop_listening(self, group_id: int) -> DeviceGroup:
         pass
-    '''

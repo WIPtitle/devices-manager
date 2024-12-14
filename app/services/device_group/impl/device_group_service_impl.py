@@ -1,18 +1,23 @@
+import time
 from typing import List, Sequence
 
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
+from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
 
 from app.exceptions.bad_request_exception import BadRequestException
+from app.exceptions.conflict_request_exception import ConflictException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.camera import Camera
 from app.models.device_group import DeviceGroup
 from app.models.enums.device_group_status import DeviceGroupStatus
+from app.models.enums.reed_status import ReedStatus
 from app.models.reed import Reed
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.reed.reed_repository import ReedRepository
 from app.services.device_group.device_group_service import DeviceGroupService
+from app.utils.delayed_execution import delay_execution
 
 
 class DeviceGroupServiceImpl(DeviceGroupService):
@@ -72,18 +77,15 @@ class DeviceGroupServiceImpl(DeviceGroupService):
     def get_all_device_groups(self) -> Sequence[DeviceGroup]:
         return self.device_group_repository.find_all_devices_groups()
 
-    '''
+
     def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
-        all_groups = self.device_group_repository.find_all_devices_groups()
-        one_group_not_idle = any(group.status != DeviceGroupStatus.IDLE for group in all_groups)
-        # This stops users from having more than one group that listens
-        if one_group_not_idle:
-            raise ConflictException("One or more groups are not idle")
+        group = self.get_device_group_by_id(group_id)
+        if group.status != DeviceGroupStatus.IDLE:
+            raise BadRequestException("Group is not idle")
 
         self.rabbitmq_client.publish(AlarmWaiting(int(time.time())))
-        delay_execution(func=self.do_start_listening, args=(group_id, force_listening), delay_seconds=self.get_device_group_by_id(group_id))
+        delay_execution(func=self.do_start_listening, args=(group_id, force_listening), delay_seconds=group.wait_to_start_alarm)
 
-        group = self.get_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.WAITING_TO_START_LISTENING
         self.device_group_repository.update_device_group(group)
 
@@ -91,44 +93,45 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def stop_listening(self, group_id: int) -> DeviceGroup:
+        group = self.get_device_group_by_id(group_id)
+        if group.status != DeviceGroupStatus.LISTENING or group.status != DeviceGroupStatus.ALARM:
+            raise BadRequestException("Group is not listening or in alarm")
         self.do_stop_listening(group_id)
         return self.get_device_group_by_id(group_id)
 
 
     def do_start_listening(self, group_id: int, force_listening: bool):
-        devices = self.get_device_list_by_id(group_id)
-        for device in devices:
-            if device.device_type == DeviceType.RTSP_CAMERA:
-                camera = self.camera_repository.find_by_generic_device_id(device.id)
-                self.camera_repository.update_listening(camera, True)
-            elif device.device_type == DeviceType.MAGNETIC_REED:
-                reed = self.reed_repository.find_by_generic_device_id(device.id)
+        cameras = self.get_device_group_cameras_by_id(group_id)
+        reeds = self.get_device_group_reeds_by_id(group_id)
 
-                # If force listening is true we ignore the open reeds and start listening on the others
-                if self.reed_listener.get_status_by_reed(reed) == ReedStatus.OPEN:
-                    if not force_listening:
-                        raise ConflictException("A reed is open")
-                else:
-                    self.reed_repository.update_listening(reed, True)
-        group = self.device_group_repository.find_device_group_by_group_id(group_id)
+        for camera in cameras:
+            self.camera_repository.update_listening(camera, True)
+
+        for reed in reeds:
+            if self.reed_listener.get_status_by_reed(reed) == ReedStatus.OPEN:
+                if not force_listening:
+                    raise ConflictException("A reed is open")
+            else:
+                self.reed_repository.update_listening(reed, True)
+
+        group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.LISTENING
         self.device_group_repository.update_device_group(group)
 
 
     def do_stop_listening(self, group_id: int):
-        devices = self.get_device_list_by_id(group_id)
-        for device in devices:
-            if device.device_type == DeviceType.RTSP_CAMERA:
-                camera = self.camera_repository.find_by_generic_device_id(device.id)
-                self.camera_repository.update_listening(camera, False)
-            elif device.device_type == DeviceType.MAGNETIC_REED:
-                reed = self.reed_repository.find_by_generic_device_id(device.id)
-                self.reed_repository.update_listening(reed, False)
+        cameras = self.get_device_group_cameras_by_id(group_id)
+        reeds = self.get_device_group_reeds_by_id(group_id)
+
+        for camera in cameras:
+            self.camera_repository.update_listening(camera, False)
+
+        for reed in reeds:
+            self.reed_repository.update_listening(reed, False)
 
         # Emit a stop alarm event even if not in alarm state, at worst it will be ignored
         self.alarm_manager.stop_alarm()
 
-        group = self.device_group_repository.find_device_group_by_group_id(group_id)
+        group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.IDLE
         self.device_group_repository.update_device_group(group)
-    '''

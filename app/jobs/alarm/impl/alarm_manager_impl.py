@@ -13,7 +13,9 @@ from app.models.enums.camera_status import CameraStatus
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.enums.reed_status import ReedStatus
 from app.models.recording import Recording, RecordingInputDto
+from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
+from app.repositories.reed.reed_repository import ReedRepository
 from app.services.recording.recording_service import RecordingService
 from app.utils.delayed_execution import delay_execution
 
@@ -24,16 +26,25 @@ from app.utils.delayed_execution import delay_execution
 # Here I can emit events for other services (essentially, starting alarm only the first time an event that should start
 # it happens, and shutting it down when user shuts it down).
 class AlarmManagerImpl(AlarmManager):
-    def __init__(self, rabbitmq_client: RabbitMQClient, device_group_repository: DeviceGroupRepository, recording_service: RecordingService):
+    def __init__(self,
+                 rabbitmq_client: RabbitMQClient,
+                 device_group_repository: DeviceGroupRepository,
+                 camera_repository: CameraRepository,
+                 reed_repository: ReedRepository,
+                 recording_service: RecordingService):
         self.rabbitmq_client = rabbitmq_client
         self.device_group_repository = device_group_repository
+        self.camera_repository = camera_repository
+        self.reed_repository = reed_repository
         self.recording_service = recording_service
         self.alarm = False
 
 
     # CALLBACK FUNCTIONS FOR LISTENERS
-    def on_camera_changed_status(self, device_id: int, camera_ip: str, camera_name: str, status: CameraStatus, blob: bytes | None):
+    def on_camera_changed_status(self, camera_ip: str, status: CameraStatus, blob: bytes | None):
         print(f"Changed status camera received: {status}, ALARM: {self.alarm}")
+        camera = self.camera_repository.find_by_ip(camera_ip)
+        group = self.device_group_repository.find_device_group_by_id(camera.group_id)
         if status == CameraStatus.MOVEMENT_DETECTED:
             # Record every movement even if alarm is already started
             try:
@@ -44,33 +55,25 @@ class AlarmManagerImpl(AlarmManager):
                 self.rabbitmq_client.publish(AlarmWaiting(int(time.time())))
                 delay_execution(
                     func=self.trigger_alarm,
-                    args=(CameraAlarm(camera_name, blob, int(time.time()))),
-                    delay_seconds=self.get_wait_seconds_to_trigger(device_id))
+                    args=(CameraAlarm(camera.name, blob, int(time.time())), group.id),
+                    delay_seconds=group.wait_to_fire_alarm)
 
 
-    def on_reed_changed_status(self, device_id: int, reed_name: str, status: ReedStatus):
+    def on_reed_changed_status(self, reed_pin: int, status: ReedStatus):
         print(f"Changed status reed received: {status}, ALARM: {self.alarm}")
+        reed = self.reed_repository.find_by_gpio_pin_number(reed_pin)
+        group = self.device_group_repository.find_device_group_by_id(reed.group_id)
         if status == ReedStatus.OPEN and not self.alarm:
             self.rabbitmq_client.publish(AlarmWaiting(int(time.time())))
             delay_execution(
                 func=self.trigger_alarm,
-                args=(ReedAlarm(reed_name, int(time.time()))),
-                delay_seconds=self.get_wait_seconds_to_trigger(device_id))
+                args=(ReedAlarm(reed.name, int(time.time())), group.id),
+                delay_seconds=group.wait_to_fire_alarm)
 
 
     # OTHER ALARM FUNCTIONS
 
-    # Since a device can be included in more than one device group, get the wait to fire seconds number from the
-    # listening group.
-    def get_wait_seconds_to_trigger(self, device_id: int) -> int:
-        device_groups = self.device_group_repository.find_device_group_list_by_device_id(device_id)
-        for group in device_groups:
-            if group.status == DeviceGroupStatus.LISTENING:
-                return group.wait_to_fire_alarm
-        return 0
-
-
-    def trigger_alarm(self, event: BaseEvent, device_id: int):
+    def trigger_alarm(self, event: BaseEvent, group_id: int):
         # After two minutes, stop audio and recordings. This does NOT stop devices from listening so alarm could be triggered
         # again. Only user can stop devices from listening.
         delay_execution(
@@ -80,12 +83,10 @@ class AlarmManagerImpl(AlarmManager):
         self.alarm = True
 
         # Find listening group and set it to alarm
-        device_groups = self.device_group_repository.find_device_group_list_by_device_id(device_id)
-        for group in device_groups:
-            if group.status == DeviceGroupStatus.LISTENING:
-                group.status = DeviceGroupStatus.ALARM
-                self.device_group_repository.update_device_group(group)
-
+        group = self.device_group_repository.find_device_group_by_id(group_id)
+        if group.status == DeviceGroupStatus.LISTENING:
+            group.status = DeviceGroupStatus.ALARM
+            self.device_group_repository.update_device_group(group)
 
 
     # This of course gets called even if alarm is not running, I chose to emit the alarm stopped event anyway

@@ -95,6 +95,6 @@ class ReedsListenerImpl(ReedsListener):
                     if self.reed_repository.find_by_gpio_pin_number(pin).listening:
                         # Alarm manager should be interacted with only when alarm is on
                         updated_reed = self.reed_repository.find_by_gpio_pin_number(pin)
-                        self.alarm_manager.on_reed_changed_status(updated_reed.generic_device_id, updated_reed.name, current_status)
+                        self.alarm_manager.on_reed_changed_status(updated_reed.gpio_pin_number, current_status)
 
             time.sleep(1)

@@ -3,10 +3,15 @@ from typing import Sequence
 from app.clients.auth_client import AuthClient
 from app.config.bindings import inject
 from app.models.camera import Camera
+from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.reed import Reed
 from app.models.device_group import DeviceGroup, DeviceGroupInputDto
 from app.routers.router_wrapper import RouterWrapper
 from app.services.device_group.device_group_service import DeviceGroupService
+from app.exceptions.bad_request_exception import BadRequestException
+from app.exceptions.authentication_exception import AuthenticationException
+
+from fastapi import Response, Request, Query
 
 
 class DeviceGroupRouter(RouterWrapper):
@@ -18,6 +23,15 @@ class DeviceGroupRouter(RouterWrapper):
 
 
     def _define_routes(self):
+        @self.router.get("/active-groups", response_class=Response)
+        def get_if_group_active():
+            device_groups = self.device_group_service.get_all_device_groups()
+            if any(group.status != DeviceGroupStatus.IDLE for group in device_groups):
+                return Response(status_code=204)
+            else:
+                raise BadRequestException("No active groups")
+
+
         @self.router.post("/")
         @self.router.post("", operation_id="post_device_group_without_slash")
         def create_device_group(device_group_dto: DeviceGroupInputDto) -> DeviceGroup:
@@ -65,17 +79,16 @@ class DeviceGroupRouter(RouterWrapper):
         def get_all_device_groups() -> Sequence[DeviceGroup]:
             return self.device_group_service.get_all_device_groups()
 
-        '''
+
         @self.router.post("/{group_id}/start-listening")
-        def start_listening(request: Request, group_id: int, pin: str, force_listening: bool = Query(...)):
-            if not self.auth_client.check_pin(token=request.headers.get("Authorization"), pin=pin):
+        async def start_listening(request: Request, group_id: int, pin: str, force_listening: bool = Query(...)):
+            if not await self.auth_client.check_pin(token=request.headers.get("Authorization"), pin=pin):
                 raise AuthenticationException("Incorrect PIN")
             return self.device_group_service.start_listening(group_id, force_listening)
 
 
         @self.router.post("/{group_id}/stop-listening")
-        def stop_listening(request: Request, group_id: int, pin: str):
-            if not self.auth_client.check_pin(token=request.headers.get("Authorization"), pin=pin):
+        async def stop_listening(request: Request, group_id: int, pin: str):
+            if not await self.auth_client.check_pin(token=request.headers.get("Authorization"), pin=pin):
                 raise AuthenticationException("Incorrect PIN")
             return self.device_group_service.stop_listening(group_id)
-        '''
