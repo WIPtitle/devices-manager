@@ -19,7 +19,7 @@ class AuthClient:
         url = f"http://{self.auth_hostname}:8000/auth/user-from-pin?pin={pin}"
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+                response = await client.get(url, headers={"Authorization": token})
                 response.raise_for_status()
                 user = response.json()
                 user_response = UserResponse(**user)

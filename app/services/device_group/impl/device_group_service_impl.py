@@ -40,6 +40,8 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def delete_device_group(self, group_id: int):
+        if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
+            raise BadRequestException("Can't delete while not idle")
         return self.device_group_repository.delete_device_group(group_id)
 
 
@@ -67,10 +69,14 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def update_device_group_cameras_by_id(self, group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
+        if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
+            raise BadRequestException("Can't update while not idle")
         return self.device_group_repository.update_device_group_cameras_by_id(group_id, camera_ips)
 
 
     def update_device_group_reeds_by_id(self, group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
+        if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
+            raise BadRequestException("Can't update while not idle")
         return self.device_group_repository.update_device_group_reeds_by_id(group_id, reed_pins)
 
 
@@ -88,8 +94,8 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             if any(self.reed_listener.get_status_by_reed(reed) == ReedStatus.OPEN for reed in reeds):
                 raise ConflictException("A reed is open, force listening if you want to ignore it")
 
-        self.rabbitmq_client.publish(AlarmWaiting(int(time.time())))
-        delay_execution(func=self.do_start_listening, args=group_id, delay_seconds=group.wait_to_start_alarm)
+        self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time())))
+        delay_execution(func=self.do_start_listening, args=(group_id, ), delay_seconds=group.wait_to_start_alarm)
 
         group.status = DeviceGroupStatus.WAITING_TO_START_LISTENING
         self.device_group_repository.update_device_group(group)
@@ -99,7 +105,8 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
     def stop_listening(self, group_id: int) -> DeviceGroup:
         group = self.get_device_group_by_id(group_id)
-        if group.status != DeviceGroupStatus.LISTENING or group.status != DeviceGroupStatus.ALARM:
+        print(group.status)
+        if group.status != DeviceGroupStatus.LISTENING and group.status != DeviceGroupStatus.ALARM:
             raise BadRequestException("Group is not listening or in alarm")
         self.do_stop_listening(group_id)
         return self.get_device_group_by_id(group_id)
@@ -119,6 +126,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.LISTENING
         self.device_group_repository.update_device_group(group)
+        self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))) # Stop waiting audio
 
 
     def do_stop_listening(self, group_id: int):
