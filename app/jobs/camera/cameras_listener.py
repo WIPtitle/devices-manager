@@ -20,3 +20,7 @@ class CamerasListener:
     @abstractmethod
     def get_status_by_camera(self, camera: Camera) -> CameraStatus:
         pass
+
+    @abstractmethod
+    def get_current_frame_by_ip(self, ip: str):
+        pass

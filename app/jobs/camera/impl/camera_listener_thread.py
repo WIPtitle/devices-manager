@@ -16,6 +16,7 @@ class CameraListenerThread(threading.Thread):
         self.frame_count = 0
         self.movement_frames = 0
         self.current_status = CameraStatus.IDLE
+        self.current_frame = cv2.imencode('.webp', cv2.resize(cv2.UMat(480, 640, cv2.CV_8UC3, (0, 0, 0)).get(), (640, 480)))[1].tobytes()
 
 
     def run(self):
@@ -47,6 +48,9 @@ class CameraListenerThread(threading.Thread):
                 if frame_count % frame_interval == 0:
                     frame = cv2.resize(frame, (640, 480))
                     frame_area = frame.shape[0] * frame.shape[1]
+
+                    ret_fr, buffer_fr = cv2.imencode(".webp", frame)
+                    self.current_frame = buffer_fr.tobytes()
 
                     fgmask = fgbg.apply(frame)
                     contours, _ = cv2.findContours(fgmask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -97,6 +101,10 @@ class CameraListenerThread(threading.Thread):
         if self.current_status != status:
             self.current_status = status
             self.callback(self.camera, status, blob)
+
+
+    def get_current_frame(self):
+        return self.current_frame
 
 
     def stop(self):

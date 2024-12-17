@@ -23,13 +23,6 @@ class CameraServiceImpl(CameraService):
         # Also start streaming process
         for camera in self.camera_repository.find_all():
             self.cameras_listener.add_camera(camera)
-            # Start streaming process
-            try:
-                thread = threading.Thread(target=self.get_frames, args=(camera.ip,), daemon=True)
-                self.camera_threads[camera.ip] = thread
-                thread.start()
-            except Exception as e:
-                print("Error starting thread for camera", camera.ip, e)
 
 
     def get_by_ip(self, ip: str) -> Camera:
@@ -43,8 +36,8 @@ class CameraServiceImpl(CameraService):
             raise BadRequestException("Camera is not reachable")
 
         camera = self.camera_repository.create(camera)
-
         self.cameras_listener.add_camera(camera)
+
         return camera
 
 
@@ -65,6 +58,7 @@ class CameraServiceImpl(CameraService):
 
         camera = self.camera_repository.update(camera)
         self.cameras_listener.update_camera(camera)
+
         return camera
 
 
@@ -86,32 +80,5 @@ class CameraServiceImpl(CameraService):
         return self.cameras_listener.get_status_by_camera(camera)
 
 
-    def get_frames(self, ip: str):
-        camera = self.camera_repository.find_by_ip(ip)
-        if not camera.is_reachable():
-            raise BadRequestException("Camera is not reachable")
-
-        cap = cv2.VideoCapture(
-            f"rtsp://{camera.username}:{camera.password}@{camera.ip}:{camera.port}/{camera.path}")
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        frame_interval = int(fps / 2)  # 2 FPS will be enough
-        frame_count = 0
-        fixed_size = (640, 480)
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame = cv2.resize(frame, fixed_size)
-            if frame_count % frame_interval == 0:
-                ret, buffer = cv2.imencode(".webp", frame)
-                self.current_frames[ip] = buffer.tobytes()
-            frame_count += 1
-
-
     def get_current_frame(self, ip: str):
-        if self.current_frames.get(ip) is None:
-            black_image = cv2.imencode('.webp', cv2.resize(cv2.UMat(480, 640, cv2.CV_8UC3, (0, 0, 0)).get(), (640, 480)))[1].tobytes()
-            return black_image
-        else:
-            return self.current_frames[ip]
+        return self.cameras_listener.get_current_frame_by_ip(ip)

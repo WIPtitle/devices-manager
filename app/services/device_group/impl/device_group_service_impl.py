@@ -105,7 +105,6 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
     def stop_listening(self, group_id: int) -> DeviceGroup:
         group = self.get_device_group_by_id(group_id)
-        print(group.status)
         if group.status != DeviceGroupStatus.LISTENING and group.status != DeviceGroupStatus.ALARM:
             raise BadRequestException("Group is not listening or in alarm")
         self.do_stop_listening(group_id)

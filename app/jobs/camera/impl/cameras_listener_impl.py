@@ -65,3 +65,10 @@ class CamerasListenerImpl(CamerasListener):
             # Alarm manager should be interacted with only when alarm is on
             updated_camera = self.camera_repository.find_by_ip(camera.ip)
             self.alarm_manager.on_camera_changed_status(updated_camera.ip, status, blob)
+
+
+    def get_current_frame_by_ip(self, ip: str):
+        for thread in self.threads:
+            if thread.camera.ip == ip:
+                return thread.get_current_frame()
+        raise CamerasListenerException(f"Camera with ip {ip} not being monitored")
