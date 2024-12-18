@@ -12,6 +12,7 @@ from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.authentication_exception import AuthenticationException
 
 from fastapi import Response, Request, Query
+from fastapi.responses import StreamingResponse
 
 
 class DeviceGroupRouter(RouterWrapper):
@@ -42,6 +43,16 @@ class DeviceGroupRouter(RouterWrapper):
         @self.router.get("/{group_id}")
         def get_device_group(group_id: int) -> DeviceGroup:
             return self.device_group_service.get_device_group_by_id(group_id)
+
+
+        @self.router.get("/{group_id}/status")
+        def get_device_group_status(group_id: int) -> DeviceGroupStatus:
+            return self.device_group_service.get_device_group_by_id(group_id).status
+
+
+        @self.router.get("/{group_id}/status/stream")
+        def get_device_group_status(group_id: int) -> StreamingResponse:
+            return StreamingResponse(self.device_group_service.get_device_group_status_stream_by_id(group_id), media_type="text/event-stream")
 
 
         @self.router.get("/{group_id}/cameras")

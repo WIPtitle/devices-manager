@@ -24,6 +24,10 @@ class DeviceGroupService(ABC):
         pass
 
     @abstractmethod
+    async def get_device_group_status_stream_by_id(self, group_id: int):
+        pass
+
+    @abstractmethod
     def get_device_group_cameras_by_id(self, group_id: int) -> Sequence[Camera]:
         pass
 

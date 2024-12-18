@@ -1,3 +1,4 @@
+import asyncio
 import time
 from typing import Sequence
 
@@ -58,6 +59,12 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
     def get_device_group_by_id(self, group_id: int) -> DeviceGroup:
         return self.device_group_repository.find_device_group_by_id(group_id)
+
+
+    async def get_device_group_status_stream_by_id(self, group_id: int):
+        while True:
+            await asyncio.sleep(1)
+            yield f"data: {self.device_group_repository.find_device_group_by_id(group_id).status}\n\n"
 
 
     def get_device_group_cameras_by_id(self, group_id: int) -> Sequence[Camera]:
