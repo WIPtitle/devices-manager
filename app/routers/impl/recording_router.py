@@ -25,17 +25,18 @@ class RecordingRouter(RouterWrapper):
             return self.recording_service.delete_by_id(rec_id)
 
 
-        # Other endpoints
-        @self.router.get("/")
-        def get_all_recordings() -> Sequence[Recording]:
-            return self.recording_service.get_all()
-
-
-        @self.router.get("/stream/{rec_id}")
+        @self.router.get("{rec_id}/stream")
         def stream_recording(rec_id: int):
             return self.recording_service.stream(rec_id)
 
 
-        @self.router.get("/download/{rec_id}")
+        @self.router.get("{rec_id}/download")
         def download_recording(rec_id: int):
             return self.recording_service.download(rec_id)
+
+
+        # Other endpoints
+        @self.router.get("/", operation_id="get_all_recordings_with_slash")
+        @self.router.get("", operation_id="get_all_recordings_without_slash")
+        def get_all_recordings() -> Sequence[Recording]:
+            return self.recording_service.get_all()

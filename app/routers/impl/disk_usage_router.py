@@ -11,6 +11,7 @@ class DiskUsageRouter(RouterWrapper):
 
 
     def _define_routes(self):
-        @self.router.get("/")
+        @self.router.get("/", operation_id="get_disk_usage_with_slash")
+        @self.router.get("", operation_id="get_disk_usage_without_slash")
         def get_usage() -> DiskUsage:
             return DiskUsage.from_path(get_recordings_path())
