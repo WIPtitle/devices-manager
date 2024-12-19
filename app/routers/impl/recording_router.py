@@ -25,12 +25,12 @@ class RecordingRouter(RouterWrapper):
             return self.recording_service.delete_by_id(rec_id)
 
 
-        @self.router.get("{rec_id}/stream")
+        @self.router.get("/{rec_id}/stream")
         def stream_recording(rec_id: int):
             return self.recording_service.stream(rec_id)
 
 
-        @self.router.get("{rec_id}/download")
+        @self.router.get("/{rec_id}/download")
         def download_recording(rec_id: int):
             return self.recording_service.download(rec_id)
 
