@@ -77,9 +77,9 @@ class CameraListenerThread(threading.Thread):
                                 # Save blob on first frame, send it on third or discard it if movement not continuous
                                 _, jpeg = cv2.imencode('.jpg', frame)
                                 blob = jpeg.tobytes()
-                            # We consider it movement only if there is movement for at least 3 consecutive frames, otherwise
+                            # We consider it movement only if there is movement for at least 4 consecutive frames (2s), otherwise
                             # we discard it as noise
-                            if frames_with_movement >= 6:
+                            if frames_with_movement >= 4:
                                 self.set_and_post_status(CameraStatus.MOVEMENT_DETECTED, blob)
                                 continue
                         else:
@@ -92,6 +92,16 @@ class CameraListenerThread(threading.Thread):
 
             except:
                 self.set_and_post_status(CameraStatus.UNREACHABLE)
+
+                # try to reconnect if unreachable
+                cap = cv2.VideoCapture(
+                    f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}")
+                fgbg = cv2.createBackgroundSubtractorMOG2()
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                frame_interval = int(fps / 2)
+                frame_count = 0
+                frames_with_movement = 0
+
                 continue
 
         cap.release()
