@@ -1,4 +1,5 @@
 import threading
+from time import sleep
 from typing import Callable
 
 import cv2
@@ -15,22 +16,25 @@ class CameraListenerThread(threading.Thread):
         self.running = True
         self.frame_count = 0
         self.movement_frames = 0
-        self.current_status = CameraStatus.IDLE
+        self.current_status = CameraStatus.UNREACHABLE # so that it will try to connect on first run
         self.current_frame = cv2.imencode('.webp', cv2.resize(cv2.UMat(480, 640, cv2.CV_8UC3, (0, 0, 0)).get(), (640, 480)))[1].tobytes()
 
 
     def run(self):
         global blob
 
-        cap = cv2.VideoCapture(
-            f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}")
-        fgbg = cv2.createBackgroundSubtractorMOG2()
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        frame_interval = int(fps / 2)  # 2 FPS will be enough
-        frame_count = 0
-        frames_with_movement = 0
-
         while self.running:
+            if self.current_status == CameraStatus.UNREACHABLE:
+                print("Camera unreachable, trying again in 5 seconds")
+                sleep(5)
+
+                cap = cv2.VideoCapture(
+                    f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}")
+                fgbg = cv2.createBackgroundSubtractorMOG2()
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                frame_interval = int(fps / 2)  # 2 FPS will be enough
+                frame_count = 0
+                frames_with_movement = 0
             try:
                 # Do NOT use camera.is_reachable() here since it is a heavy operation and we do NOT want to slow down
                 # this cycle.
@@ -92,16 +96,6 @@ class CameraListenerThread(threading.Thread):
 
             except:
                 self.set_and_post_status(CameraStatus.UNREACHABLE)
-
-                # try to reconnect if unreachable
-                cap = cv2.VideoCapture(
-                    f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}")
-                fgbg = cv2.createBackgroundSubtractorMOG2()
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                frame_interval = int(fps / 2)
-                frame_count = 0
-                frames_with_movement = 0
-
                 continue
 
         cap.release()
