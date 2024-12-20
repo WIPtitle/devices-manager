@@ -1,3 +1,5 @@
+import asyncio
+import base64
 import threading
 from typing import Sequence
 
@@ -82,3 +84,10 @@ class CameraServiceImpl(CameraService):
 
     def get_current_frame(self, ip: str):
         return self.cameras_listener.get_current_frame_by_ip(ip)
+
+
+    async def get_camera_stream_by_ip(self, ip: str):
+        while True:
+            await asyncio.sleep(0.5)
+            frame = base64.b64encode(self.cameras_listener.get_current_frame_by_ip(ip)).decode('utf-8')
+            yield f"data: {frame}\n\n"

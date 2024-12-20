@@ -1,6 +1,7 @@
 from typing import Sequence
 
 from app.config.bindings import inject
+from app.exceptions.bad_request_exception import BadRequestException
 from app.models.recording import Recording
 from app.routers.router_wrapper import RouterWrapper
 from app.services.recording.recording_service import RecordingService
@@ -27,7 +28,8 @@ class RecordingRouter(RouterWrapper):
 
         @self.router.get("/{rec_id}/stream")
         def stream_recording(rec_id: int):
-            return self.recording_service.stream(rec_id)
+            #return self.recording_service.stream(rec_id)
+            raise BadRequestException("Not implemented")
 
 
         @self.router.get("/{rec_id}/download")
