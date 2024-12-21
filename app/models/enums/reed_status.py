@@ -8,5 +8,5 @@ class ReedStatus(str, Enum):
 
     def to_dict(self):
         return {
-            "reed_status": self.value,
+            "status": self.value,
         }
