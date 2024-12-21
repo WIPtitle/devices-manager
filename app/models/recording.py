@@ -15,7 +15,7 @@ class RecordingInputDto(SQLModel):
 
 class Recording(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    camera_ip: str = Field(foreign_key="camera.ip")
+    camera_ip: str
     name: str | None
     path: str | None
     is_completed: bool | None

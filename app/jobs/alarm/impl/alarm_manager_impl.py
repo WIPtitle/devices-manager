@@ -52,6 +52,7 @@ class AlarmManagerImpl(AlarmManager):
             except BadRequestException:
                 print("Movement found but already recording with this camera")
             if not self.alarm:
+                self.alarm = True
                 self.rabbitmq_client.publish(
                     AlarmWaiting(True, int(time.time())))  # So there is a warning audio before triggering the alarm
                 delay_execution(
@@ -65,6 +66,7 @@ class AlarmManagerImpl(AlarmManager):
         reed = self.reed_repository.find_by_gpio_pin_number(reed_pin)
         group = self.device_group_repository.find_device_group_by_id(reed.group_id)
         if status == ReedStatus.OPEN and not self.alarm:
+            self.alarm = True
             self.rabbitmq_client.publish(
                 AlarmWaiting(True, int(time.time())))  # So there is a warning audio before triggering the alarm
             delay_execution(
@@ -86,7 +88,6 @@ class AlarmManagerImpl(AlarmManager):
             delay_seconds=120)
 
         self.rabbitmq_client.publish(event) # Start alarm audio and send notifications
-        self.alarm = True
 
         # Find listening group and set it to alarm
         group = self.device_group_repository.find_device_group_by_id(group_id)

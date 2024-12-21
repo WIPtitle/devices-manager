@@ -24,8 +24,6 @@ class RecordingServiceImpl(RecordingService):
 
     def create(self, recording: Recording) -> Recording:
         camera = self.camera_repository.find_by_ip(recording.camera_ip) # will throw if not found
-        if not camera.is_reachable():
-            raise BadRequestException("Camera is not reachable")
 
         if not self.recording_manager.is_recording(recording.camera_ip):
             recording = self.recording_repository.create(recording)
