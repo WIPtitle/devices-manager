@@ -36,7 +36,8 @@ class ReedRepositoryImpl(ReedRepository):
 
     def update(self, reed: Reed) -> Reed:
         reed_db = self.find_by_gpio_pin_number(reed.gpio_pin_number)
-        reed_db.default_value_when_closed = reed.default_value_when_closed
+        reed_db.vcc = reed.vcc
+        reed_db.normally_closed = reed.normally_closed
         reed_db.name = reed.name
         self.database_connector.get_session().commit()
         self.database_connector.get_session().refresh(reed_db)
