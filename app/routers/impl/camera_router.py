@@ -51,5 +51,15 @@ class CameraRouter(RouterWrapper):
 
 
         @self.router.get("/{ip}/stream")
-        async def get_camera_stream_by_ip(ip: str):
-            return StreamingResponse(self.camera_service.get_camera_stream_by_ip(ip), media_type="text/event-stream")
+        async def get_camera_stream_by_ip(request: Request, ip: str):
+            async def stream_frames():
+                while True:
+                    frame = self.camera_service.get_current_frame(ip)
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/webp\r\n\r\n" + frame + b"\r\n"
+                    )
+                    time.sleep(0.5) # Since cameras are limited to 2 FPS, we can sleep for 0.5 seconds
+                    if await request.is_disconnected():
+                        break
+            return StreamingResponse(stream_frames(), media_type="multipart/x-mixed-replace;boundary=frame")

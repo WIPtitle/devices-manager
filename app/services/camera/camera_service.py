@@ -31,5 +31,5 @@ class CameraService(ABC):
         pass
 
     @abstractmethod
-    async def get_camera_stream_by_ip(self, ip: str):
+    def get_current_frame(self, ip: str):
         pass
