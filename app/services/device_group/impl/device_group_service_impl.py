@@ -8,6 +8,7 @@ from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.conflict_request_exception import ConflictException
 from app.jobs.alarm.alarm_manager import AlarmManager
+from app.jobs.camera.cameras_listener import CamerasListener
 from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.camera import Camera
 from app.models.device_group import DeviceGroup
@@ -24,12 +25,14 @@ from app.utils.delayed_execution import delay_execution
 class DeviceGroupServiceImpl(DeviceGroupService):
     def __init__(self, device_group_repository: DeviceGroupRepository,
                  camera_repository: CameraRepository,
+                 camera_listener: CamerasListener,
                  reed_repository: ReedRepository,
                  reed_listener: ReedsListener,
                  alarm_manager: AlarmManager,
                  rabbitmq_client: RabbitMQClient):
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
+        self.cameras_listener = camera_listener
         self.reed_repository = reed_repository
         self.reed_listener = reed_listener
         self.alarm_manager = alarm_manager
@@ -123,7 +126,8 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         reeds = self.get_device_group_reeds_by_id(group_id)
 
         for camera in cameras:
-            self.camera_repository.update_listening(camera, True)
+            updated_camera = self.camera_repository.update_listening(camera, True)
+            self.cameras_listener.update_camera(updated_camera) # to update listening status
 
         for reed in reeds:
             if self.reed_listener.get_status_by_reed(reed) != ReedStatus.OPEN:
@@ -140,7 +144,8 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         reeds = self.get_device_group_reeds_by_id(group_id)
 
         for camera in cameras:
-            self.camera_repository.update_listening(camera, False)
+            updated_camera = self.camera_repository.update_listening(camera, False)
+            self.cameras_listener.update_camera(updated_camera)  # to update listening status
 
         for reed in reeds:
             self.reed_repository.update_listening(reed, False)

@@ -59,7 +59,7 @@ recording_service = RecordingServiceImpl(recording_repository=recording_reposito
 alarm_manager = AlarmManagerImpl(rabbitmq_client, device_group_repository, camera_repository, reed_repository, recording_service)
 reeds_listener = ReedsListenerImpl(alarm_manager, reed_repository)
 cameras_listener = CamerasListenerImpl(alarm_manager, camera_repository)
-device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, reed_repository, reeds_listener, alarm_manager, rabbitmq_client)
+device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, cameras_listener, reed_repository, reeds_listener, alarm_manager, rabbitmq_client)
 reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener)
 
 camera_service = CameraServiceImpl(camera_repository=camera_repository, cameras_listener=cameras_listener)

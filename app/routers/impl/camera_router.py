@@ -59,7 +59,8 @@ class CameraRouter(RouterWrapper):
                         b"--frame\r\n"
                         b"Content-Type: image/webp\r\n\r\n" + frame + b"\r\n"
                     )
-                    time.sleep(0.5) # Since cameras are limited to 2 FPS, we can sleep for 0.5 seconds
+                    # camera listener fps are usually more to correctly find humans, but the stream can be slower since it's not a real time video but just a small feed
+                    time.sleep(1)
                     if await request.is_disconnected():
                         break
             return StreamingResponse(stream_frames(), media_type="multipart/x-mixed-replace;boundary=frame")
