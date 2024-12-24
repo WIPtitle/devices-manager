@@ -1,9 +1,4 @@
-import asyncio
-import base64
-import threading
 from typing import Sequence
-
-import cv2
 
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException

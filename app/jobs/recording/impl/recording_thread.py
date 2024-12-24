@@ -1,10 +1,19 @@
 import os
+import subprocess
 import threading
-
-import cv2
 
 from app.models.camera import Camera
 from app.models.recording import Recording
+
+
+def get_unique_file_path(base_path):
+    file_path = base_path
+    file_root, file_ext = os.path.splitext(base_path)
+    counter = 1
+    while os.path.exists(file_path):
+        file_path = f"{file_root}({counter}){file_ext}"
+        counter += 1
+    return file_path
 
 
 class RecordingThread(threading.Thread):
@@ -13,51 +22,42 @@ class RecordingThread(threading.Thread):
         self.camera = camera
         self.recording = recording
         self.running = True
+        self.file_path = get_unique_file_path(f"{self.recording.path}/{self.recording.name}.webm")
 
 
     def run(self):
-        rtsp_url = f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}"
-        file_path = f"{self.recording.path}/{self.recording.name}"
+        command = [
+            "ffmpeg",
+            "-i", self.camera.url,
+            "-vf", "fps=5",
+            "-c:v", "libvpx",
+            "-b:v", "250k",
+            "-preset", "ultrafast",
+            "-cpu-used", "4",
+            "-threads", "4",
+            "-crf", "60",
+            '-loglevel', 'quiet',
+            "-an",
+            self.file_path
+        ]
 
+        proc = None
         is_unreachable = True
 
         while self.running:
-            if is_unreachable:
-                cap = cv2.VideoCapture(rtsp_url)
-                if not cap.isOpened():
-                    continue
-
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                original_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                original_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-                # output stream is redefined with existing frames if it already exists, to avoid overriding if camera unreachable and then restarts
-                if os.path.exists(file_path):
-                    existing_cap = cv2.VideoCapture(file_path)
-                    out = cv2.VideoWriter(file_path, cv2.VideoWriter.fourcc(*'vp80'), fps, (original_width, original_height))
-                    while existing_cap.isOpened():
-                        ret, frame = existing_cap.read()
-                        if not ret:
-                            break
-                        out.write(frame)
-                    existing_cap.release()
-                else:
-                    out = cv2.VideoWriter(file_path, cv2.VideoWriter.fourcc(*'vp80'), fps, (original_width, original_height))
-
             try:
-                ret, frame = cap.read()
-                if ret:
-                    out.write(frame)
+                if proc is None or is_unreachable or proc.poll() is not None:
+                    proc = subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=10 ** 8)
                     is_unreachable = False
-                else:
-                    is_unreachable = True
             except Exception as e:
-                print("Exception on recording:", e)
                 is_unreachable = True
+                print("Exception on recording thread:", e)
 
-        cap.release()
-        out.release()
+        if proc is not None:
+            proc.terminate()
 
 
     def stop(self):
         self.running = False
+
+

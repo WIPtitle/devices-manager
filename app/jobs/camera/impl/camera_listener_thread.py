@@ -1,20 +1,25 @@
-import logging
+import subprocess
 import threading
-from time import sleep
 from typing import Callable
+import io
 
-import cv2
-from ultralytics import YOLO
+import numpy as np
+from PIL import Image
 
 from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
 
 
-logging.getLogger("torch").setLevel(logging.ERROR)
-logging.getLogger("ultralytics").setLevel(logging.ERROR)
-
-# Load YOLO model
-model = YOLO('yolo11s-pose.pt')
+def motion_detection(frame1, frame2, threshold_percentage):
+    if frame1 is None or frame2 is None:
+        return False
+    diff = np.abs(frame1.astype(np.int16) - frame2.astype(np.int16))
+    diff = np.mean(diff, axis=2)
+    diff_bin = (diff > 0).astype(np.uint8)
+    changed_pixels = np.sum(diff_bin)
+    total_pixels = diff_bin.size
+    changed_percentage = (changed_pixels / total_pixels) * 100
+    return changed_percentage > threshold_percentage
 
 
 class CameraListenerThread(threading.Thread):
@@ -23,95 +28,60 @@ class CameraListenerThread(threading.Thread):
         self.camera = camera
         self.callback = callback
         self.running = True
-        self.predicting = False
         self.current_status = CameraStatus.UNREACHABLE # so that it will try to connect on first run
-        self.current_frame = cv2.imencode('.webp', cv2.resize(cv2.UMat(480, 640, cv2.CV_8UC3, (0, 0, 0)).get(), (640, 480)))[1].tobytes()
-        self.listening_fps = 4
+        self.current_frame = np.zeros((480, 640, 3), dtype=np.uint8).tobytes()
 
 
     def run(self):
+        command = [
+            "ffmpeg",
+            "-i", f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
+            "-vf", "fps=1,scale=640:480",
+            "-f", "image2pipe",
+            "-vcodec", "rawvideo",
+            "-pix_fmt", "rgb24",
+            '-loglevel', 'quiet',
+            "-"
+        ]
+
+        frames_with_movement = 0
+        prev_frame = None
+        proc = None
+
         while self.running:
-            if self.current_status == CameraStatus.UNREACHABLE:
-                cap = cv2.VideoCapture(
-                    f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}")
-
-                if not cap.isOpened():
-                    self.set_and_post_status(CameraStatus.UNREACHABLE)
-                    continue
-
-                camera_fps = cap.get(cv2.CAP_PROP_FPS)
-
             try:
-                # sleep for a while to match the listening fps, grabbing but not loading the frames to return always the latest
-                sleep(1 / self.listening_fps)
-                for _ in range(int(camera_fps / self.listening_fps) - 1):
-                    cap.grab()
+                if proc is None or self.current_status == CameraStatus.UNREACHABLE or proc.poll() is not None:
+                    proc = subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=10 ** 8)
+                    self.set_and_post_status(CameraStatus.IDLE)
 
-                # read frame
-                ret, frame = cap.read()
-                if not ret:
-                    self.set_and_post_status(CameraStatus.UNREACHABLE)
-                    continue
+                raw_frame = proc.stdout.read()
+                curr_frame = np.frombuffer(raw_frame, dtype=np.uint8)
 
-                frame = cv2.resize(frame, (640, 480))
+                image = Image.fromarray(curr_frame)
+                buffer = io.BytesIO()
+                image.save(buffer, format="WEBP")
+                blob = buffer.getvalue()
+                self.current_frame = blob
 
-                ret_fr, buffer_fr = cv2.imencode(".webp", frame)
-                self.current_frame = buffer_fr.tobytes()
+                if motion_detection(prev_frame, curr_frame, 100 - self.camera.sensibility):
+                    frames_with_movement += 1
 
-                # only detect human if listening and not already detecting
-                # running in separate thread so it doesn't block the camera listener from reading frames,
-                # since predict can take a while
-                if self.camera.listening and not self.predicting:
-                    threading.Thread(target=self.run_predict, args=(frame,)).start()
+                if frames_with_movement == 2:
+                    image = Image.fromarray(curr_frame)
+                    buffer = io.BytesIO()
+                    image.save(buffer, format="JPEG")
+                    blob = buffer.getvalue()
 
-                self.set_and_post_status(CameraStatus.IDLE)
+                    self.set_and_post_status(CameraStatus.MOVEMENT_DETECTED, blob)
+                    frames_with_movement = 0
 
+                prev_frame = curr_frame
             except Exception as e:
                 print("Exception on camera listener:", e)
                 self.set_and_post_status(CameraStatus.UNREACHABLE)
-                continue
 
-        cap.release()
-
-
-    def run_predict(self, frame):
-        self.predicting = True
-        try:
-            results = model.predict(frame)
-            confidence_threshold = 0.6 - (self.camera.sensibility / 100) * 0.2 # 0.4 to 0.6 with respectively 100 to 0 sensibility, using 0.5 as the base threshold
-
-            # get the largest human box to draw on the frame given the results and a threshold
-            max_area = 0
-            largest_box = None
-            for result in results:
-                boxes = result.boxes
-                keypoints = result.keypoints
-
-                if keypoints is not None:
-                    for box in boxes:
-                        cls = int(box.cls[0])
-                        conf = box.conf[0]
-                        if cls == 0 and conf >= confidence_threshold:  # 0 is the label for human
-                            x1, y1, x2, y2 = map(int, box.xyxy[0])
-                            area = (x2 - x1) * (y2 - y1)
-                            if area > max_area:
-                                max_area = area
-                                largest_box = box
-
-            if largest_box is not None:
-                x1, y1, x2, y2 = map(int, largest_box.xyxy[0])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-                # Save blob on first frame, discard it if movement not continuous
-                _, jpeg = cv2.imencode('.jpg', frame)
-                blob = jpeg.tobytes()
-
-                self.set_and_post_status(CameraStatus.MOVEMENT_DETECTED, blob)
-        except Exception as e:
-            print("Exception on camera listener human detection:", e)
-            self.predicting = False
-        finally:
-            self.predicting = False
+        if proc is not None:
+            proc.terminate()
 
 
     def set_and_post_status(self, status: CameraStatus, blob: bytes | None = None):
