@@ -1,6 +1,7 @@
 import io
 import subprocess
 import threading
+import time
 from typing import Callable
 
 import cv2
@@ -38,7 +39,6 @@ class CameraListenerThread(threading.Thread):
     def run(self):
         command = [
             "ffmpeg",
-            "-hwaccel", "auto",
             "-i", f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
             "-vf", "fps=1,scale=640:480",
             "-f", "image2pipe",
@@ -51,6 +51,7 @@ class CameraListenerThread(threading.Thread):
         proc = None
 
         while self.running:
+            time.sleep(1)
             try:
                 if proc is None or self.current_status == CameraStatus.UNREACHABLE or proc.poll() is not None:
                     proc = subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=10 ** 8)
