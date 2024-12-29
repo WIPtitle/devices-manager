@@ -51,7 +51,8 @@ class CameraListenerThread(threading.Thread):
         proc = None
 
         while self.running:
-            time.sleep(1)
+            time.sleep(1) # check every second if process is still running
+
             try:
                 if proc is None or self.current_status == CameraStatus.UNREACHABLE or proc.poll() is not None:
                     proc = subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=10 ** 8)

@@ -1,19 +1,10 @@
 import os
 import subprocess
 import threading
+import time
 
 from app.models.camera import Camera
 from app.models.recording import Recording
-
-
-def get_unique_file_path(base_path):
-    file_path = base_path
-    file_root, file_ext = os.path.splitext(base_path)
-    counter = 1
-    while os.path.exists(file_path):
-        file_path = f"{file_root}({counter}){file_ext}"
-        counter += 1
-    return file_path
 
 
 class RecordingThread(threading.Thread):
@@ -22,13 +13,13 @@ class RecordingThread(threading.Thread):
         self.camera = camera
         self.recording = recording
         self.running = True
-        self.file_path = get_unique_file_path(f"{self.recording.path}/{self.recording.name}.webm")
+        self.file_path = os.path.join(recording.path, recording.name)
 
 
     def run(self):
         command = [
             "ffmpeg",
-            "-i", self.camera.url,
+            "-i", f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
             "-vf", "fps=4",
             "-c:v", "libvpx",
             "-b:v", "250k",
@@ -45,6 +36,8 @@ class RecordingThread(threading.Thread):
         is_unreachable = True
 
         while self.running:
+            time.sleep(1) # check every second if process is still running
+
             try:
                 if proc is None or is_unreachable or proc.poll() is not None:
                     proc = subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=10 ** 8)

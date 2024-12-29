@@ -69,7 +69,6 @@ class RecordingRepositoryImpl(RecordingRepository):
         if recording_db is None:
             raise NotFoundException("Recording was not found")
 
-        session = self.database_connector.get_new_session()
         session.delete(recording_db)
         session.commit()
         session.close()

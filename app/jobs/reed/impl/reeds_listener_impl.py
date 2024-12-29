@@ -86,6 +86,8 @@ class ReedsListenerImpl(ReedsListener):
 
     def monitor_pins(self):
         while self.running:
+            time.sleep(1) # check every second
+
             for pin in self.reed_infos.keys():
                 current_status = read_current_status(pin, self.reed_infos.get(pin)[0], self.reed_infos.get(pin)[1])
                 if current_status != self.reed_infos.get(pin)[2]:
@@ -100,5 +102,3 @@ class ReedsListenerImpl(ReedsListener):
                         # Alarm manager should be interacted with only when alarm is on
                         updated_reed = self.reed_repository.find_by_gpio_pin_number(pin)
                         self.alarm_manager.on_reed_changed_status(updated_reed.gpio_pin_number, current_status)
-
-            time.sleep(1)

@@ -31,7 +31,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         if device_group is None:
             raise NotFoundException("Device group was not found")
 
-        # Do not update status, that is calculated
+        device_group.status = group.status
         device_group.name = group.name
         device_group.wait_to_start_alarm = group.wait_to_start_alarm
         device_group.wait_to_fire_alarm = group.wait_to_fire_alarm
