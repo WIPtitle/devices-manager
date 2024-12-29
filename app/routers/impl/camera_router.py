@@ -59,7 +59,6 @@ class CameraRouter(RouterWrapper):
                         b"--frame\r\n"
                         b"Content-Type: image/webp\r\n\r\n" + frame + b"\r\n"
                     )
-                    # camera listener fps are usually more to correctly find humans, but the stream can be slower since it's not a real time video but just a small feed
                     time.sleep(1)
                     if await request.is_disconnected():
                         break

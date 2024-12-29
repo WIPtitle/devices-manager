@@ -16,7 +16,7 @@ class ReedRepositoryImpl(ReedRepository):
 
     def find_by_gpio_pin_number(self, reed_gpio_pin_number: int) -> Reed:
         statement = select(Reed).where(Reed.gpio_pin_number == reed_gpio_pin_number)
-        reed_db = self.database_connector.get_session().exec(statement).first()
+        reed_db = self.database_connector.get_new_session().exec(statement).first()
         if reed_db is None:
             raise NotFoundException("Reed was not found")
 
@@ -27,9 +27,9 @@ class ReedRepositoryImpl(ReedRepository):
         try:
             self.find_by_gpio_pin_number(reed.gpio_pin_number)
         except NotFoundException:
-            self.database_connector.get_session().add(reed)
-            self.database_connector.get_session().commit()
-            self.database_connector.get_session().refresh(reed)
+            self.database_connector.get_new_session().add(reed)
+            self.database_connector.get_new_session().commit()
+            self.database_connector.get_new_session().refresh(reed)
             return reed
         raise BadRequestException("Reed already exists")
 
@@ -39,26 +39,26 @@ class ReedRepositoryImpl(ReedRepository):
         reed_db.vcc = reed.vcc
         reed_db.normally_closed = reed.normally_closed
         reed_db.name = reed.name
-        self.database_connector.get_session().commit()
-        self.database_connector.get_session().refresh(reed_db)
+        self.database_connector.get_new_session().commit()
+        self.database_connector.get_new_session().refresh(reed_db)
         return reed_db
 
 
     def delete_by_gpio_pin_number(self, reed_gpio_pin_number: int) -> Reed:
         reed_db = self.find_by_gpio_pin_number(reed_gpio_pin_number)
-        self.database_connector.get_session().delete(reed_db)
-        self.database_connector.get_session().commit()
+        self.database_connector.get_new_session().delete(reed_db)
+        self.database_connector.get_new_session().commit()
         return reed_db
 
 
     def find_all(self) -> Sequence[Reed]:
         statement = select(Reed)
-        return self.database_connector.get_session().exec(statement).all()
+        return self.database_connector.get_new_session().exec(statement).all()
 
 
     def update_listening(self, reed: Reed, listening: bool):
         reed_db = self.find_by_gpio_pin_number(reed.gpio_pin_number)
         reed_db.listening = listening
-        self.database_connector.get_session().commit()
-        self.database_connector.get_session().refresh(reed_db)
+        self.database_connector.get_new_session().commit()
+        self.database_connector.get_new_session().refresh(reed_db)
         return reed_db

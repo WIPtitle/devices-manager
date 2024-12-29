@@ -29,7 +29,7 @@ class RecordingThread(threading.Thread):
         command = [
             "ffmpeg",
             "-i", self.camera.url,
-            "-vf", "fps=5",
+            "-vf", "fps=4",
             "-c:v", "libvpx",
             "-b:v", "250k",
             "-preset", "ultrafast",

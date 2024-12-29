@@ -12,7 +12,6 @@ class DatabaseConnectorImpl(DatabaseConnector):
         credentials_file = os.getenv('PG_CREDENTIALS_FILE')
         credentials = read_credentials(credentials_file)
 
-        self.session = None
         self.engine = create_engine(
             f"postgresql://{credentials['POSTGRES_USER']}:{credentials['POSTGRES_PASSWORD']}@{database_hostname}:5432/{credentials['POSTGRES_DB']}",
             echo=False)
@@ -22,10 +21,5 @@ class DatabaseConnectorImpl(DatabaseConnector):
         except:
             pass
 
-    def get_session(self):
-        if self.session is None or not self.session.is_active:
-            if self.session is not None:
-                self.session.rollback()
-                self.session.close()
-            self.session = Session(self.engine)
-        return self.session
+    def get_new_session(self):
+        return Session(self.engine)
