@@ -19,8 +19,8 @@ class DeviceGroup(SQLModel, table=True):
     wait_to_start_alarm: int
     wait_to_fire_alarm: int
     status: DeviceGroupStatus
-    cameras: List[Camera] = Relationship(back_populates="group")
-    reeds: List[Reed] = Relationship(back_populates="group")
+    cameras: List[Camera] = Relationship(back_populates="group", sa_relationship_kwargs={"lazy": "joined"})
+    reeds: List[Reed] = Relationship(back_populates="group", sa_relationship_kwargs={"lazy": "joined"})
 
     @classmethod
     def from_dto(cls, dto: DeviceGroupInputDto):

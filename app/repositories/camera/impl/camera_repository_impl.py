@@ -16,7 +16,9 @@ class CameraRepositoryImpl(CameraRepository):
 
     def find_by_ip(self, ip: str) -> Camera:
         statement = select(Camera).where(Camera.ip == ip)
-        camera_db = self.database_connector.get_new_session().exec(statement).first()
+        session = self.database_connector.get_new_session()
+        camera_db = session.exec(statement).first()
+        session.close()
         if camera_db is None:
             raise NotFoundException("Camera was not found")
 
@@ -27,42 +29,63 @@ class CameraRepositoryImpl(CameraRepository):
         try:
             self.find_by_ip(camera.ip)
         except NotFoundException:
-            self.database_connector.get_new_session().add(camera)
-            self.database_connector.get_new_session().commit()
-            self.database_connector.get_new_session().refresh(camera)
+            session = self.database_connector.get_new_session()
+            session.add(camera)
+            session.commit()
+            session.refresh(camera)
+            session.close()
             return camera
         raise BadRequestException("Camera already exists")
 
 
-
     def update(self, camera: Camera) -> Camera:
-        camera_db = self.find_by_ip(camera.ip)
+        statement = select(Camera).where(Camera.ip == camera.ip)
+        session = self.database_connector.get_new_session()
+        camera_db = session.exec(statement).first()
+        if camera_db is None:
+            raise NotFoundException("Camera was not found")
+
         camera_db.port = camera.port
         camera_db.username = camera.username
         camera_db.password = camera.password
         camera_db.path = camera.path
         camera_db.sensibility = camera.sensibility
         camera_db.name = camera.name
-        self.database_connector.get_new_session().commit()
-        self.database_connector.get_new_session().refresh(camera_db)
+
+        session.commit()
+        session.refresh(camera_db)
+        session.close()
         return camera_db
 
 
     def delete_by_ip(self, ip: str) -> Camera:
-        camera_db = self.find_by_ip(ip)
-        self.database_connector.get_new_session().delete(camera_db)
-        self.database_connector.get_new_session().commit()
+        statement = select(Camera).where(Camera.ip == ip)
+        session = self.database_connector.get_new_session()
+        camera_db = session.exec(statement).first()
+        if camera_db is None:
+            raise NotFoundException("Camera was not found")
+        session.delete(camera_db)
+        session.commit()
+        session.close()
         return camera_db
 
 
     def find_all(self) -> Sequence[Camera]:
         statement = select(Camera)
-        return self.database_connector.get_new_session().exec(statement).all()
+        session = self.database_connector.get_new_session()
+        result = session.exec(statement).all()
+        session.close()
+        return result
 
 
     def update_listening(self, camera: Camera, listening: bool):
-        camera_db = self.find_by_ip(camera.ip)
+        statement = select(Camera).where(Camera.ip == camera.ip)
+        session = self.database_connector.get_new_session()
+        camera_db = session.exec(statement).first()
+        if camera_db is None:
+            raise NotFoundException("Camera was not found")
         camera_db.listening = listening
-        self.database_connector.get_new_session().commit()
-        self.database_connector.get_new_session().refresh(camera_db)
+        session.commit()
+        session.refresh(camera_db)
+        session.close()
         return camera_db

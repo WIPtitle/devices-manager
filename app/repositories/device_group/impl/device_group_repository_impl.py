@@ -20,12 +20,16 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         session.add(device_group)
         session.commit()
         session.refresh(device_group)
+        session.close()
         return device_group
 
 
     def update_device_group(self, group: DeviceGroup):
+        statement = select(DeviceGroup).where(DeviceGroup.id == group.id)
         session = self.database_connector.get_new_session()
-        device_group = self.find_device_group_by_id(group.id)
+        device_group = session.exec(statement).unique().first()
+        if device_group is None:
+            raise NotFoundException("Device group was not found")
 
         # Do not update status, that is calculated
         device_group.name = group.name
@@ -34,12 +38,16 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
 
         session.commit()
         session.refresh(device_group)
+        session.close()
         return device_group
 
 
     def delete_device_group(self, group_id: int):
+        statement = select(DeviceGroup).where(DeviceGroup.id == group_id)
         session = self.database_connector.get_new_session()
-        device_group = self.find_device_group_by_id(group_id)
+        device_group = session.exec(statement).unique().first()
+        if device_group is None:
+            raise NotFoundException("Device group was not found")
 
         # Set group_id to None for all cameras in the group
         for camera in device_group.cameras:
@@ -51,12 +59,15 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
 
         session.delete(device_group)
         session.commit()
+        session.close()
         return device_group
 
 
     def find_device_group_by_id(self, device_group_id: int) -> DeviceGroup:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
-        device_group = self.database_connector.get_new_session().exec(statement).first()
+        session = self.database_connector.get_new_session()
+        device_group = session.exec(statement).unique().first()
+        session.close()
         if device_group is None:
             raise NotFoundException("Device group was not found")
         return device_group
@@ -64,7 +75,9 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
 
     def find_device_group_cameras_by_id(self, device_group_id: int) -> Sequence[Camera]:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
-        device_group = self.database_connector.get_new_session().exec(statement).first()
+        session = self.database_connector.get_new_session()
+        device_group = session.exec(statement).first()
+        session.close()
         if device_group is None:
             raise NotFoundException("Device group was not found")
         return device_group.cameras
@@ -72,15 +85,20 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
 
     def find_device_group_reeds_by_id(self, device_group_id: int) -> Sequence[Reed]:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
-        device_group = self.database_connector.get_new_session().exec(statement).first()
+        session = self.database_connector.get_new_session()
+        device_group = session.exec(statement).first()
+        session.close()
         if device_group is None:
             raise NotFoundException("Device group was not found")
         return device_group.reeds
 
 
     def update_device_group_cameras_by_id(self, device_group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
+        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         session = self.database_connector.get_new_session()
-        device_group = self.find_device_group_by_id(device_group_id)
+        device_group = session.exec(statement).unique().first()
+        if device_group is None:
+            raise NotFoundException("Device group was not found")
 
         # Check and update existing cameras
         for camera in device_group.cameras:
@@ -88,7 +106,8 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
                 camera.group_id = None
 
         statement = select(Camera).where(Camera.ip.in_(camera_ips))
-        new_cameras = session.exec(statement).all()
+
+        new_cameras = session.exec(statement).unique().all()
 
         for camera in new_cameras:
             if camera.group_id is not None and camera.group_id != device_group_id:
@@ -99,12 +118,16 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
 
         session.commit()
         session.refresh(device_group)
+        session.close()
         return device_group.cameras
 
 
     def update_device_group_reeds_by_id(self, device_group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
+        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         session = self.database_connector.get_new_session()
-        device_group = self.find_device_group_by_id(device_group_id)
+        device_group = session.exec(statement).unique().first()
+        if device_group is None:
+            raise NotFoundException("Device group was not found")
 
         # Check and update existing reeds
         for reed in device_group.reeds:
@@ -112,7 +135,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
                 reed.group_id = None
 
         statement = select(Reed).where(Reed.gpio_pin_number.in_(reed_pins))
-        new_reeds = session.exec(statement).all()
+        new_reeds = session.exec(statement).unique().all()
 
         for reed in new_reeds:
             if reed.group_id is not None and reed.group_id != device_group_id:
@@ -123,10 +146,13 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
 
         session.commit()
         session.refresh(device_group)
+        session.close()
         return device_group.reeds
 
 
     def find_all_devices_groups(self) -> Sequence[DeviceGroup]:
         statement = select(DeviceGroup)
-        device_groups = self.database_connector.get_new_session().exec(statement).all()
+        session = self.database_connector.get_new_session()
+        device_groups = session.exec(statement).unique().all()
+        session.close()
         return device_groups

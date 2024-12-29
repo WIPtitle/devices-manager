@@ -13,14 +13,14 @@ class CamerasListenerImpl(CamerasListener):
     def __init__(self, alarm_manager: AlarmManager, camera_repository: CameraRepository):
         self.alarm_manager = alarm_manager
         self.camera_repository = camera_repository
-        self.cameras_status: Dict[Camera, CameraStatus] = {}
+        self.cameras_status: Dict[str, CameraStatus] = {}
         self.threads = []
 
 
     def add_camera(self, camera: Camera):
-        if camera not in self.cameras_status:
+        if camera.ip not in self.cameras_status:
             # Set default first status to idle, listener thread will update it with the correct one once started.
-            self.cameras_status[camera] = CameraStatus.IDLE
+            self.cameras_status[camera.ip] = CameraStatus.IDLE
             thread = CameraListenerThread(camera, self.update_status)
             thread.start()
             self.threads.append(thread)
@@ -29,29 +29,29 @@ class CamerasListenerImpl(CamerasListener):
 
 
     def update_camera(self, camera: Camera):
-        for c in list(self.cameras_status.keys()):
-            if c.ip == camera.ip:
-                self.remove_camera(c)
+        for ip in list(self.cameras_status.keys()):
+            if ip == camera.ip:
+                self.remove_camera(camera)
                 self.add_camera(camera)
                 return
         raise CamerasListenerException(f"Camera with ip {camera.ip} not being monitored")
 
 
     def remove_camera(self, camera: Camera):
-        if camera in self.cameras_status:
+        if camera.ip in self.cameras_status:
             for thread in self.threads:
                 if thread.camera.ip == camera.ip:
                     thread.stop()
                     self.threads.remove(thread)
                     break
-            del self.cameras_status[camera]
+            del self.cameras_status[camera.ip]
         else:
             raise CamerasListenerException(f"Camera with ip {camera.ip} not being monitored")
 
 
     def get_status_by_camera(self, camera: Camera) -> CameraStatus:
-        if camera in self.cameras_status:
-            return self.cameras_status[camera]
+        if camera.ip in self.cameras_status:
+            return self.cameras_status[camera.ip]
         else:
             raise CamerasListenerException(f"Camera with ip {camera.ip} not being monitored")
 
@@ -59,7 +59,7 @@ class CamerasListenerImpl(CamerasListener):
     def update_status(self, camera: Camera, status: CameraStatus, blob: bytes | None = None):
         # Status changed, emit event; status changed control should happen in thread instead of bombarding this
         # callback with statuses for each frame.
-        self.cameras_status[camera] = status
+        self.cameras_status[camera.ip] = status
 
         if self.camera_repository.find_by_ip(camera.ip).listening:
             # Alarm manager should be interacted with only when alarm is on

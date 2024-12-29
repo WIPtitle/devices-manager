@@ -16,7 +16,9 @@ class RecordingRepositoryImpl(RecordingRepository):
 
     def find_by_id(self, rec_id: int) -> Recording:
         statement = select(Recording).where(Recording.id == rec_id)
-        recording_db = self.database_connector.get_new_session().exec(statement).first()
+        session = self.database_connector.get_new_session()
+        recording_db = session.exec(statement).first()
+        session.close()
         if recording_db is None:
             raise NotFoundException("Recording was not found")
 
@@ -25,7 +27,9 @@ class RecordingRepositoryImpl(RecordingRepository):
 
     def find_by_name(self, name: str) -> Recording:
         statement = select(Recording).where(Recording.name == name)
-        recording_db = self.database_connector.get_new_session().exec(statement).first()
+        session = self.database_connector.get_new_session()
+        recording_db = session.exec(statement).first()
+        session.close()
         if recording_db is None:
             raise NotFoundException("Recording was not found")
         return recording_db
@@ -35,28 +39,46 @@ class RecordingRepositoryImpl(RecordingRepository):
         try:
             self.find_by_id(recording.id)
         except NotFoundException:
-            self.database_connector.get_new_session().add(recording)
-            self.database_connector.get_new_session().commit()
-            self.database_connector.get_new_session().refresh(recording)
+            session = self.database_connector.get_new_session()
+            session.add(recording)
+            session.commit()
+            session.refresh(recording)
+            session.close()
             return recording
         raise BadRequestException("Recording already exists")
 
 
     def set_stopped(self, recording: Recording) -> Recording:
-        recording_db = self.find_by_id(recording.id)
+        statement = select(Recording).where(Recording.id == recording.id)
+        session = self.database_connector.get_new_session()
+        recording_db = session.exec(statement).first()
+        if recording_db is None:
+            raise NotFoundException("Recording was not found")
+
         recording_db.is_completed = True
-        self.database_connector.get_new_session().commit()
-        self.database_connector.get_new_session().refresh(recording_db)
+        session.commit()
+        session.refresh(recording_db)
+        session.close()
         return recording_db
 
 
     def delete_by_id(self, rec_id: int) -> Recording:
-        recording_db = self.find_by_id(rec_id)
-        self.database_connector.get_new_session().delete(recording_db)
-        self.database_connector.get_new_session().commit()
+        statement = select(Recording).where(Recording.id == rec_id)
+        session = self.database_connector.get_new_session()
+        recording_db = session.exec(statement).first()
+        if recording_db is None:
+            raise NotFoundException("Recording was not found")
+
+        session = self.database_connector.get_new_session()
+        session.delete(recording_db)
+        session.commit()
+        session.close()
         return recording_db
 
 
     def find_all(self) -> Sequence[Recording]:
         statement = select(Recording)
-        return self.database_connector.get_new_session().exec(statement).all()
+        session = self.database_connector.get_new_session()
+        result = session.exec(statement).all()
+        session.close()
+        return result
