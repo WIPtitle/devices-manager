@@ -104,7 +104,8 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             if any(self.reed_listener.get_status_by_reed(reed) == ReedStatus.OPEN for reed in reeds):
                 raise ConflictException("A reed is open, force listening if you want to ignore it")
 
-        self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time())))
+        while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
+            time.sleep(1)
         delay_execution(func=self.do_start_listening, args=(group_id, ), delay_seconds=group.wait_to_start_alarm)
 
         group.status = DeviceGroupStatus.WAITING_TO_START_LISTENING
@@ -136,7 +137,8 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.LISTENING
         self.device_group_repository.update_device_group(group)
-        self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))) # Stop waiting audio
+        while not self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))):
+            time.sleep(1)
 
 
     def do_stop_listening(self, group_id: int):

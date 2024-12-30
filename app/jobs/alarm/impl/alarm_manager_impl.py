@@ -53,8 +53,8 @@ class AlarmManagerImpl(AlarmManager):
                 print("Movement found but already recording with this camera")
             if not self.alarm:
                 self.alarm = True
-                self.rabbitmq_client.publish(
-                    AlarmWaiting(True, int(time.time())))  # So there is a warning audio before triggering the alarm
+                while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
+                    time.sleep(1)
                 delay_execution(
                     func=self.trigger_alarm,
                     args=(CameraAlarm(camera.name, blob, int(time.time())), group.id),
@@ -67,8 +67,8 @@ class AlarmManagerImpl(AlarmManager):
         group = self.device_group_repository.find_device_group_by_id(reed.group_id)
         if status == ReedStatus.OPEN and not self.alarm:
             self.alarm = True
-            self.rabbitmq_client.publish(
-                AlarmWaiting(True, int(time.time())))  # So there is a warning audio before triggering the alarm
+            while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
+                time.sleep(1)
             delay_execution(
                 func=self.trigger_alarm,
                 args=(ReedAlarm(reed.name, int(time.time())), group.id),
@@ -78,8 +78,8 @@ class AlarmManagerImpl(AlarmManager):
     # OTHER ALARM FUNCTIONS
 
     def trigger_alarm(self, event: BaseEvent, group_id: int):
-        self.rabbitmq_client.publish(
-            AlarmWaiting(False, int(time.time()))) # Stop warning audio
+        while not self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))):
+            time.sleep(1)
 
         # After two minutes, stop audio and recordings. This does NOT stop devices from listening so alarm could be triggered
         # again. Only user can stop devices from listening.
@@ -87,7 +87,8 @@ class AlarmManagerImpl(AlarmManager):
             func=self.stop_alarm,
             delay_seconds=120)
 
-        self.rabbitmq_client.publish(event) # Start alarm audio and send notifications
+        while not self.rabbitmq_client.publish(event):
+            time.sleep(1)
 
         # Find listening group and set it to alarm
         group = self.device_group_repository.find_device_group_by_id(group_id)
@@ -107,5 +108,6 @@ class AlarmManagerImpl(AlarmManager):
         for rec in all_recs:
             if not rec.is_completed:
                 self.recording_service.stop(rec.id)
-        self.rabbitmq_client.publish(AlarmStopped(int(time.time())))
+        while not self.rabbitmq_client.publish(AlarmStopped(int(time.time()))):
+            time.sleep(1)
         self.alarm = False
