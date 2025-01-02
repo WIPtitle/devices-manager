@@ -65,6 +65,10 @@ class AlarmManagerImpl(AlarmManager):
         print(f"Changed status reed received: {status}, ALARM: {self.alarm}")
         reed = self.reed_repository.find_by_gpio_pin_number(reed_pin)
         group = self.device_group_repository.find_device_group_by_id(reed.group_id)
+
+        # This filters the case where a reed is open on alarm start, because a changed status event will not be triggered
+        # unless reed is closed after. If closed, nothing really happens, but if opened again another changed status
+        # event will be triggered and this time it will start the alarm.
         if status == ReedStatus.OPEN and not self.alarm:
             self.alarm = True
             while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):

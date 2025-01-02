@@ -94,15 +94,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         return self.device_group_repository.find_all_devices_groups()
 
 
-    def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
+    def start_listening(self, group_id: int) -> DeviceGroup:
         group = self.get_device_group_by_id(group_id)
         if group.status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Group is not idle")
-
-        if not force_listening:
-            reeds = self.device_group_repository.find_device_group_reeds_by_id(group_id)
-            if any(self.reed_listener.get_status_by_reed(reed) == ReedStatus.OPEN for reed in reeds):
-                raise ConflictException("A reed is open, force listening if you want to ignore it")
 
         while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
             time.sleep(1)
@@ -131,8 +126,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             self.cameras_listener.update_camera(updated_camera) # to update listening status
 
         for reed in reeds:
-            if self.reed_listener.get_status_by_reed(reed) != ReedStatus.OPEN:
-                self.reed_repository.update_listening(reed, True)
+            self.reed_repository.update_listening(reed, True)
 
         group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.LISTENING

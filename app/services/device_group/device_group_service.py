@@ -48,7 +48,7 @@ class DeviceGroupService(ABC):
         pass
 
     @abstractmethod
-    def start_listening(self, group_id: int, force_listening: bool) -> DeviceGroup:
+    def start_listening(self, group_id: int) -> DeviceGroup:
         pass
 
     @abstractmethod
