@@ -86,8 +86,8 @@ class CameraListenerThread(threading.Thread):
                     if rectangle:
                         frames_with_movement += 1
 
-                        # if there is movement for 2 frames in a row, consider it as movement detected
-                        if frames_with_movement == 2:
+                        # keep variable for testing but trigger on first sign of movement
+                        if frames_with_movement == 1:
                             x, y, w, h = rectangle
                             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                             _, jpeg = cv2.imencode('.jpg', frame)
