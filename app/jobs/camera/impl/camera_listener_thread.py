@@ -79,7 +79,7 @@ class CameraListenerThread(threading.Thread):
                     fgmask = fgbg.apply(frame)
                     contours, _ = cv2.findContours(fgmask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-                    filtered_contours = [contour for contour in contours if cv2.contourArea(contour) > self.camera.sensibility / 100 * frame_area]
+                    filtered_contours = [contour for contour in contours if cv2.contourArea(contour) > (1 - self.camera.sensibility / 100) * frame_area]
                     rectangle = find_biggest_rectangle(filtered_contours)
 
                     # if there is movement bigger than threshold keep the biggest rectangle
