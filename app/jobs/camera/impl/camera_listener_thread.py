@@ -12,20 +12,6 @@ from app.models.camera import Camera
 from app.models.enums.camera_status import CameraStatus
 
 
-def find_biggest_rectangle(contours):
-    largest_rect = None
-    largest_area = 0
-
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        area = w * h
-        if area > largest_area:
-            largest_area = area
-            largest_rect = (x, y, w, h)
-
-    return largest_rect
-
-
 class CameraListenerThread(threading.Thread):
     def __init__(self, camera: Camera, callback: Callable[[Camera, CameraStatus, bytes | None], None]):
         super().__init__()
@@ -49,6 +35,7 @@ class CameraListenerThread(threading.Thread):
         ]
 
         proc = None
+        last_greyscale_frame = None
 
         while self.running:
             time.sleep(1) # check every second if process is still running
@@ -56,10 +43,7 @@ class CameraListenerThread(threading.Thread):
             try:
                 if proc is None or self.current_status == CameraStatus.UNREACHABLE or proc.poll() is not None:
                     proc = subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=10 ** 8)
-                    fgbg = cv2.createBackgroundSubtractorMOG2()
-
                     self.set_and_post_status(CameraStatus.IDLE)
-                    frames_with_movement = 0
 
                 raw_frame = proc.stdout.read(640 * 480 * 3)
                 frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((480, 640, 3))
@@ -76,27 +60,42 @@ class CameraListenerThread(threading.Thread):
                     frame = cv2.resize(frame, (640, 480))
                     frame_area = frame.shape[0] * frame.shape[1]
 
-                    fgmask = fgbg.apply(frame)
-                    contours, _ = cv2.findContours(fgmask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                    # ensure we start with a last frame set
+                    if last_greyscale_frame is None:
+                        last_greyscale_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                        last_greyscale_frame = cv2.GaussianBlur(last_greyscale_frame, (21, 21), 0)
+                        last_greyscale_frame = last_greyscale_frame
+                        continue
 
-                    filtered_contours = [contour for contour in contours if cv2.contourArea(contour) > (1 - self.camera.sensibility / 100) * frame_area]
-                    rectangle = find_biggest_rectangle(filtered_contours)
+                    current_grayscale_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    current_grayscale_frame = cv2.GaussianBlur(current_grayscale_frame, (21, 21), 0)
 
-                    # if there is movement bigger than threshold keep the biggest rectangle
-                    if rectangle:
-                        frames_with_movement += 1
+                    diff = cv2.absdiff(last_greyscale_frame, current_grayscale_frame)
+                    _, thresh = cv2.threshold(diff, 15, 255, cv2.THRESH_BINARY)
+                    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                        # keep variable for testing but trigger on first sign of movement
-                        if frames_with_movement == 1:
-                            x, y, w, h = rectangle
-                            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    # combine all contours in one rectangle and check if big enough
+                    if contours:
+                        x_min, y_min = float('inf'), float('inf')
+                        x_max, y_max = float('-inf'), float('-inf')
+
+                        for contour in contours:
+                            x, y, w, h = cv2.boundingRect(contour)
+                            x_min = min(x_min, x)
+                            y_min = min(y_min, y)
+                            x_max = max(x_max, x + w)
+                            y_max = max(y_max, y + h)
+
+                        combined_rect_area = (x_max - x_min) * (y_max - y_min)
+
+                        if combined_rect_area > (1 - self.camera.sensibility / 100) * frame_area:
+                            cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
                             _, jpeg = cv2.imencode('.jpg', frame)
                             blob = jpeg.tobytes()
 
                             self.set_and_post_status(CameraStatus.MOVEMENT_DETECTED, blob)
-                            frames_with_movement = 0
-                    else:
-                        frames_with_movement = 0
+
+                    last_greyscale_frame = current_grayscale_frame
 
             except Exception as e:
                 print("Exception on camera listener:", e)
