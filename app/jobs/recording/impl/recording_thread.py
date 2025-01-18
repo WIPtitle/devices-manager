@@ -1,3 +1,4 @@
+import io
 import os
 import subprocess
 import threading
@@ -27,15 +28,14 @@ class RecordingThread(threading.Thread):
             f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
             "-vf", "fps=4",
             "-c:v", "libvpx",
-            "-b:v", "500k",
+            "-b:v", "250k",
             "-preset", "ultrafast",
             "-cpu-used", "4",
             "-threads", "4",
             "-crf", "60",
             '-loglevel', 'quiet',
             "-an",
-            "-f", "mjpeg",
-            "pipe:1"
+            self.file_path
         ]
 
         proc = None
@@ -50,7 +50,6 @@ class RecordingThread(threading.Thread):
                     is_unreachable = False
 
                 raw_frame = proc.stdout.read(640 * 480 * 3)
-                '''
                 frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((480, 640, 3))
 
                 # convert frame to webp using numpy and pillow, it's lighter than using cv2
@@ -58,9 +57,8 @@ class RecordingThread(threading.Thread):
                 buffer = io.BytesIO()
                 image.save(buffer, format="WEBP")
                 blob = buffer.getvalue()
-                '''
                 if raw_frame:
-                    self.current_frame = raw_frame
+                    self.current_frame = blob
 
             except Exception as e:
                 is_unreachable = True
