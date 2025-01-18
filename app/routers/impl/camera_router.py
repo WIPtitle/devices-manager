@@ -44,7 +44,7 @@ class CameraRouter(RouterWrapper):
         async def get_camera_stream_by_ip(request: Request, ip: str):
             async def stream_frames():
                 while True:
-                    frame = self.camera_service.ge(ip)
+                    frame = self.camera_service.get_current_frame(ip)
                     yield (
                         b"--frame\r\n"
                         b"Content-Type: image/webp\r\n\r\n" + frame + b"\r\n"

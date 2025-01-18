@@ -68,7 +68,6 @@ class RecordingsManagerImpl(RecordingsManager):
 
 
     def delete_recording(self, recording: Recording):
-        self.stop_recording(recording)
         delete_file(recording.path + "/" + recording.name)
 
 
