@@ -1,7 +1,6 @@
-from typing import Optional
-
 import subprocess
-from sqlmodel import SQLModel, Field, Relationship
+
+from sqlmodel import SQLModel, Field
 
 
 class CameraInputDto(SQLModel):
@@ -23,8 +22,6 @@ class Camera(SQLModel, table=True):
     sensibility: int # Percentage of camera area for minimum area of motion
     listening: bool
     name: str
-    group_id: Optional[int] = Field(default=None, foreign_key="devicegroup.id")
-    group: Optional["DeviceGroup"] = Relationship(back_populates="cameras")
 
 
     @classmethod
@@ -37,8 +34,7 @@ class Camera(SQLModel, table=True):
             path=dto.path,
             sensibility=dto.sensibility,
             listening=False,
-            name=dto.name,
-            group_id=None
+            name=dto.name
         )
 
     def is_reachable(self):

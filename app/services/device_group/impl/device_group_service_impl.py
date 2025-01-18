@@ -99,6 +99,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         if group.status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Group is not idle")
 
+        # Only permit start listening if no other group is listening or waiting to, so we are sure only one group is listening at a time
+        if not self.device_group_repository.are_all_groups_idle():
+            raise BadRequestException("Not all groups are idle, can't start listening")
+
         while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
             time.sleep(1)
         delay_execution(func=self.do_start_listening, args=(group_id, ), delay_seconds=group.wait_to_start_alarm)

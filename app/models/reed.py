@@ -1,6 +1,4 @@
-from typing import Optional
-
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field
 
 
 class ReedInputDto(SQLModel):
@@ -16,8 +14,6 @@ class Reed(SQLModel, table=True):
     normally_closed: bool
     vcc: bool
     listening: bool
-    group_id: Optional[int] = Field(default=None, foreign_key="devicegroup.id")
-    group: Optional["DeviceGroup"] = Relationship(back_populates="reeds")
 
     @classmethod
     def from_dto(cls, dto: ReedInputDto):
@@ -26,6 +22,5 @@ class Reed(SQLModel, table=True):
             name=dto.name,
             normally_closed=dto.normally_closed,
             vcc=dto.vcc,
-            listening=False,
-            group_id=None,
+            listening=False
         )

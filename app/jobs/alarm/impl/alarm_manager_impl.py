@@ -44,7 +44,8 @@ class AlarmManagerImpl(AlarmManager):
     def on_camera_changed_status(self, camera_ip: str, status: CameraStatus, blob: bytes | None):
         print(f"Changed status camera received: {status}, ALARM: {self.alarm}")
         camera = self.camera_repository.find_by_ip(camera_ip)
-        group = self.device_group_repository.find_device_group_by_id(camera.group_id)
+        group = self.device_group_repository.find_listening_device_group()
+
         if status == CameraStatus.MOVEMENT_DETECTED:
             # Record every movement even if alarm is already started
             try:
@@ -64,7 +65,7 @@ class AlarmManagerImpl(AlarmManager):
     def on_reed_changed_status(self, reed_pin: int, status: ReedStatus):
         print(f"Changed status reed received: {status}, ALARM: {self.alarm}")
         reed = self.reed_repository.find_by_gpio_pin_number(reed_pin)
-        group = self.device_group_repository.find_device_group_by_id(reed.group_id)
+        group = self.device_group_repository.find_listening_device_group()
 
         # This filters the case where a reed is open on alarm start, because a changed status event will not be triggered
         # unless reed is closed after. If closed, nothing really happens, but if opened again another changed status

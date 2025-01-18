@@ -5,6 +5,7 @@ from sqlmodel import select
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.not_found_exception import NotFoundException
 from app.models.camera import Camera
+from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.reed import Reed
 from app.models.device_group import DeviceGroup
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
@@ -49,14 +50,6 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         if device_group is None:
             raise NotFoundException("Device group was not found")
 
-        # Set group_id to None for all cameras in the group
-        for camera in device_group.cameras:
-            camera.group_id = None
-
-        # Set group_id to None for all reeds in the group
-        for reed in device_group.reeds:
-            reed.group_id = None
-
         session.delete(device_group)
         session.commit()
         session.close()
@@ -77,20 +70,22 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         session = self.database_connector.get_new_session()
         device_group = session.exec(statement).first()
+        cameras = device_group.cameras
         session.close()
         if device_group is None:
             raise NotFoundException("Device group was not found")
-        return device_group.cameras
+        return cameras
 
 
     def find_device_group_reeds_by_id(self, device_group_id: int) -> Sequence[Reed]:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         session = self.database_connector.get_new_session()
         device_group = session.exec(statement).first()
+        reeds = device_group.reeds
         session.close()
         if device_group is None:
             raise NotFoundException("Device group was not found")
-        return device_group.reeds
+        return reeds
 
 
     def update_device_group_cameras_by_id(self, device_group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
@@ -100,26 +95,16 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         if device_group is None:
             raise NotFoundException("Device group was not found")
 
-        # Check and update existing cameras
-        for camera in device_group.cameras:
-            if camera.ip not in camera_ips:
-                camera.group_id = None
-
         statement = select(Camera).where(Camera.ip.in_(camera_ips))
-
         new_cameras = session.exec(statement).unique().all()
-
-        for camera in new_cameras:
-            if camera.group_id is not None and camera.group_id != device_group_id:
-                raise BadRequestException(f"Camera with IP {camera.ip} is already part of another group")
-            camera.group_id = device_group_id
 
         device_group.cameras = new_cameras
 
         session.commit()
         session.refresh(device_group)
+        cameras = device_group.cameras
         session.close()
-        return device_group.cameras
+        return cameras
 
 
     def update_device_group_reeds_by_id(self, device_group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
@@ -129,25 +114,16 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         if device_group is None:
             raise NotFoundException("Device group was not found")
 
-        # Check and update existing reeds
-        for reed in device_group.reeds:
-            if reed.gpio_pin_number not in reed_pins:
-                reed.group_id = None
-
         statement = select(Reed).where(Reed.gpio_pin_number.in_(reed_pins))
         new_reeds = session.exec(statement).unique().all()
-
-        for reed in new_reeds:
-            if reed.group_id is not None and reed.group_id != device_group_id:
-                raise BadRequestException(f"Reed with GPIO pin {reed.gpio_pin_number} is already part of another group")
-            reed.group_id = device_group_id
 
         device_group.reeds = new_reeds
 
         session.commit()
         session.refresh(device_group)
+        reeds = device_group.reeds
         session.close()
-        return device_group.reeds
+        return reeds
 
 
     def find_all_devices_groups(self) -> Sequence[DeviceGroup]:
@@ -156,3 +132,22 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         device_groups = session.exec(statement).unique().all()
         session.close()
         return device_groups
+
+
+    def find_listening_device_group(self) -> DeviceGroup:
+        # Only a single group can be listening at a time, so return the first found or throw
+        statement = select(DeviceGroup).where(DeviceGroup.status == DeviceGroupStatus.LISTENING)
+        session = self.database_connector.get_new_session()
+        device_group = session.exec(statement).unique().first()
+        session.close()
+        if device_group is None:
+            raise NotFoundException("Active device group was not found")
+        return device_group
+
+
+    def are_all_groups_idle(self) -> bool:
+        statement = select(DeviceGroup).where(DeviceGroup.status != DeviceGroupStatus.IDLE)
+        session = self.database_connector.get_new_session()
+        device_group = session.exec(statement).unique().first()
+        session.close()
+        return device_group is None

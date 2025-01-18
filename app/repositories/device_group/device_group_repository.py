@@ -43,3 +43,11 @@ class DeviceGroupRepository(ABC):
     @abstractmethod
     def find_all_devices_groups(self) -> Sequence[DeviceGroup]:
         pass
+
+    @abstractmethod
+    def find_listening_device_group(self) -> DeviceGroup:
+        pass
+
+    @abstractmethod
+    def are_all_groups_idle(self) -> bool:
+        pass
