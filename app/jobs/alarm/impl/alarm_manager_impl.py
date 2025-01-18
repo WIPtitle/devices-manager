@@ -26,13 +26,11 @@ class AlarmManagerImpl(AlarmManager):
                  rabbitmq_client: RabbitMQClient,
                  device_group_repository: DeviceGroupRepository,
                  camera_repository: CameraRepository,
-                 reed_repository: ReedRepository,
-                 recording_service: RecordingService):
+                 reed_repository: ReedRepository):
         self.rabbitmq_client = rabbitmq_client
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
         self.reed_repository = reed_repository
-        self.recording_service = recording_service
         self.alarm = False
 
 
@@ -83,10 +81,6 @@ class AlarmManagerImpl(AlarmManager):
     # if user manually deactivates alarm, but it can also happen after a certain amount of time because
     # we do not want audio and recordings to go on forever (still, it will trigger again if devices change status again).
     def stop_alarm(self):
-        all_recs = self.recording_service.get_all()
-        for rec in all_recs:
-            if not rec.is_completed:
-                self.recording_service.stop(rec.id)
         while not self.rabbitmq_client.publish(AlarmStopped(int(time.time()))):
             time.sleep(1)
         self.alarm = False

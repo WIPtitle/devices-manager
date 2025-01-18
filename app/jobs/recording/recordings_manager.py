@@ -19,3 +19,11 @@ class RecordingsManager:
     @abstractmethod
     def delete_recording(self, recording: Recording):
         pass
+
+    @abstractmethod
+    def get_current_frame_by_ip(self, ip: str):
+        pass
+
+    @abstractmethod
+    def get_current_recording_by_camera_ip(self, camera_ip: str):
+        pass

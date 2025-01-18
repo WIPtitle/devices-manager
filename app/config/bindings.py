@@ -54,12 +54,12 @@ device_group_repository = DeviceGroupRepositoryImpl(database_connector=database_
 
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
-alarm_manager = AlarmManagerImpl(rabbitmq_client, device_group_repository, camera_repository, reed_repository, recording_service)
+alarm_manager = AlarmManagerImpl(rabbitmq_client, device_group_repository, camera_repository, reed_repository)
 reeds_listener = ReedsListenerImpl(alarm_manager, reed_repository)
 device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, reed_repository, reeds_listener, alarm_manager, rabbitmq_client)
 reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener)
 
-camera_service = CameraServiceImpl(camera_repository=camera_repository)
+camera_service = CameraServiceImpl(camera_repository=camera_repository, recording_service=recording_service)
 
 
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required

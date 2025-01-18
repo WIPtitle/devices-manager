@@ -30,11 +30,6 @@ class CameraRouter(RouterWrapper):
             return self.camera_service.create(Camera.from_dto(camera))
 
 
-        @self.router.put("/{ip}")
-        def update_camera(ip: str, camera: Camera) -> Camera:
-            return self.camera_service.update(ip, camera)
-
-
         @self.router.delete("/{ip}")
         def delete_camera_by_ip(ip: str) -> Camera:
             return self.camera_service.delete_by_ip(ip)
@@ -49,7 +44,7 @@ class CameraRouter(RouterWrapper):
         async def get_camera_stream_by_ip(request: Request, ip: str):
             async def stream_frames():
                 while True:
-                    frame = self.camera_service.get_current_frame(ip)
+                    frame = self.camera_service.ge(ip)
                     yield (
                         b"--frame\r\n"
                         b"Content-Type: image/webp\r\n\r\n" + frame + b"\r\n"

@@ -14,10 +14,6 @@ class CameraService(ABC):
         pass
 
     @abstractmethod
-    def update(self, ip: str, camera: Camera) -> Camera:
-        pass
-
-    @abstractmethod
     def delete_by_ip(self, ip: str) -> Camera:
         pass
 

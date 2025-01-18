@@ -10,11 +10,11 @@ class RecordingService(ABC):
         pass
 
     @abstractmethod
-    def create(self, recording: Recording) -> Recording:
+    def create_and_start(self, recording: Recording) -> Recording:
         pass
 
     @abstractmethod
-    def stop(self, rec_id: int) -> Recording:
+    def stop_by_camera_ip(self, camera_ip: str) -> Recording:
         pass
 
     @abstractmethod
@@ -31,4 +31,8 @@ class RecordingService(ABC):
 
     @abstractmethod
     def download(self, rec_id: int):
+        pass
+
+    @abstractmethod
+    def get_current_frame(self, ip: str):
         pass

@@ -1,6 +1,7 @@
 import glob
 import os
 
+from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.recording.impl.recording_thread import RecordingThread
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.models.disk_usage import DiskUsage
@@ -37,6 +38,7 @@ class RecordingsManagerImpl(RecordingsManager):
                 return True
         return False
 
+
     def start_recording(self, recording: Recording):
         camera = self.camera_repository.find_by_ip(recording.camera_ip)
 
@@ -67,3 +69,18 @@ class RecordingsManagerImpl(RecordingsManager):
 
     def delete_recording(self, recording: Recording):
         self.stop_recording(recording)
+        delete_file(recording.path + "/" + recording.name)
+
+
+    def get_current_frame_by_ip(self, ip: str):
+        for thread in self.threads:
+            if thread.camera.ip == ip:
+                return thread.get_current_frame()
+        raise BadRequestException(f"Camera with ip {ip} not being monitored")
+
+
+    def get_current_recording_by_camera_ip(self, camera_ip: str):
+        for thread in self.threads:
+            if thread.recording.camera_ip == camera_ip:
+                return thread.recording
+        return None

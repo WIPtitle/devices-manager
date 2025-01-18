@@ -14,10 +14,6 @@ class CameraRepository(ABC):
         pass
 
     @abstractmethod
-    def update(self, camera: Camera) -> Camera:
-        pass
-
-    @abstractmethod
     def delete_by_ip(self, ip: str) -> Camera:
         pass
 
