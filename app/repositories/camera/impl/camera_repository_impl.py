@@ -49,7 +49,6 @@ class CameraRepositoryImpl(CameraRepository):
         camera_db.username = camera.username
         camera_db.password = camera.password
         camera_db.path = camera.path
-        camera_db.sensibility = camera.sensibility
         camera_db.name = camera.name
 
         session.commit()
@@ -76,16 +75,3 @@ class CameraRepositoryImpl(CameraRepository):
         result = session.exec(statement).all()
         session.close()
         return result
-
-
-    def update_listening(self, camera: Camera, listening: bool):
-        statement = select(Camera).where(Camera.ip == camera.ip)
-        session = self.database_connector.get_new_session()
-        camera_db = session.exec(statement).first()
-        if camera_db is None:
-            raise NotFoundException("Camera was not found")
-        camera_db.listening = listening
-        session.commit()
-        session.refresh(camera_db)
-        session.close()
-        return camera_db

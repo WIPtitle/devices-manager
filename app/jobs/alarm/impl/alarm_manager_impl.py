@@ -4,15 +4,11 @@ from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.event.base_event import BaseEvent
 from rabbitmq_sdk.event.impl.devices_manager.alarm_stopped import AlarmStopped
 from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
-from rabbitmq_sdk.event.impl.devices_manager.camera_alarm import CameraAlarm
 from rabbitmq_sdk.event.impl.devices_manager.reed_alarm import ReedAlarm
 
-from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.alarm.alarm_manager import AlarmManager
-from app.models.enums.camera_status import CameraStatus
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.enums.reed_status import ReedStatus
-from app.models.recording import Recording, RecordingInputDto
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.reed.reed_repository import ReedRepository
@@ -38,28 +34,6 @@ class AlarmManagerImpl(AlarmManager):
         self.reed_repository = reed_repository
         self.recording_service = recording_service
         self.alarm = False
-
-
-    # CALLBACK FUNCTIONS FOR LISTENERS
-    def on_camera_changed_status(self, camera_ip: str, status: CameraStatus, blob: bytes | None):
-        print(f"Changed status camera received: {status}, ALARM: {self.alarm}")
-        camera = self.camera_repository.find_by_ip(camera_ip)
-        group = self.device_group_repository.find_listening_device_group()
-
-        if status == CameraStatus.MOVEMENT_DETECTED:
-            # Record every movement even if alarm is already started
-            try:
-                self.recording_service.create(Recording.from_dto(RecordingInputDto(camera_ip=camera_ip)))
-            except BadRequestException:
-                print("Movement found but already recording with this camera")
-            if not self.alarm:
-                self.alarm = True
-                while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
-                    time.sleep(1)
-                delay_execution(
-                    func=self.trigger_alarm,
-                    args=(CameraAlarm(camera.name, blob, int(time.time())), group.id),
-                    delay_seconds=group.wait_to_fire_alarm)
 
 
     def on_reed_changed_status(self, reed_pin: int, status: ReedStatus):

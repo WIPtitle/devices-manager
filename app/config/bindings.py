@@ -12,8 +12,6 @@ from app.database.impl.database_connector_impl import DatabaseConnectorImpl
 from app.exceptions.not_implemented_exception import NotImplementedException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.alarm.impl.alarm_manager_impl import AlarmManagerImpl
-from app.jobs.camera.cameras_listener import CamerasListener
-from app.jobs.camera.impl.cameras_listener_impl import CamerasListenerImpl
 from app.jobs.recording.impl.recordings_manager_impl import RecordingsManagerImpl
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.jobs.reed.impl.reeds_listener_impl import ReedsListenerImpl
@@ -58,11 +56,10 @@ recording_manager = RecordingsManagerImpl(camera_repository, recording_repositor
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
 alarm_manager = AlarmManagerImpl(rabbitmq_client, device_group_repository, camera_repository, reed_repository, recording_service)
 reeds_listener = ReedsListenerImpl(alarm_manager, reed_repository)
-cameras_listener = CamerasListenerImpl(alarm_manager, camera_repository)
-device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, cameras_listener, reed_repository, reeds_listener, alarm_manager, rabbitmq_client)
+device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, reed_repository, reeds_listener, alarm_manager, rabbitmq_client)
 reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener)
 
-camera_service = CameraServiceImpl(camera_repository=camera_repository, cameras_listener=cameras_listener)
+camera_service = CameraServiceImpl(camera_repository=camera_repository)
 
 
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
@@ -74,7 +71,6 @@ bindings[RecordingRepository] = recording_repository
 bindings[DeviceGroupRepository] = device_group_repository
 bindings[ReedRepository] = reed_repository
 
-bindings[CamerasListener] = cameras_listener
 bindings[RecordingsManager] = recording_manager
 bindings[AlarmManager] = alarm_manager
 bindings[ReedsListener] = reeds_listener

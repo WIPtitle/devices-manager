@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse
 
 from app.exceptions.authentication_exception import AuthenticationException
 from app.exceptions.bad_request_exception import BadRequestException
-from app.exceptions.cameras_listener_exception import CamerasListenerException
 from app.exceptions.conflict_request_exception import ConflictException
 from app.exceptions.internal_error_exception import InternalErrorException
 from app.exceptions.not_found_exception import NotFoundException
@@ -40,12 +39,6 @@ async def internal_error_exception_handler(request: Request, exc: InternalErrorE
 async def validation_exception_handler(request: Request, exc: ValidationException):
     return JSONResponse(
         status_code=400,
-        content={"message": exc.message},
-    )
-
-async def cameras_listener_exception_handler(request: Request, exc: CamerasListenerException):
-    return JSONResponse(
-        status_code=500,
         content={"message": exc.message},
     )
 

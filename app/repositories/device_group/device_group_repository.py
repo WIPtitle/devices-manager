@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import List, Sequence
+from typing import Sequence
 
-from app.models.camera import Camera
-from app.models.reed import Reed
 from app.models.device_group import DeviceGroup
+from app.models.reed import Reed
 
 
 class DeviceGroupRepository(ABC):
@@ -25,15 +24,7 @@ class DeviceGroupRepository(ABC):
         pass
 
     @abstractmethod
-    def find_device_group_cameras_by_id(self, device_group_id: int) -> Sequence[Camera]:
-        pass
-
-    @abstractmethod
     def find_device_group_reeds_by_id(self, device_group_id: int) -> Sequence[Reed]:
-        pass
-
-    @abstractmethod
-    def update_device_group_cameras_by_id(self, device_group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
         pass
 
     @abstractmethod

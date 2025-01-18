@@ -1,18 +1,17 @@
 from typing import Sequence
 
+from fastapi import Response, Request
+from fastapi.responses import StreamingResponse
+
 from app.clients.auth_client import AuthClient
 from app.config.bindings import inject
-from app.models.camera import Camera
+from app.exceptions.authentication_exception import AuthenticationException
+from app.exceptions.bad_request_exception import BadRequestException
+from app.models.device_group import DeviceGroup, DeviceGroupInputDto
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.reed import Reed
-from app.models.device_group import DeviceGroup, DeviceGroupInputDto
 from app.routers.router_wrapper import RouterWrapper
 from app.services.device_group.device_group_service import DeviceGroupService
-from app.exceptions.bad_request_exception import BadRequestException
-from app.exceptions.authentication_exception import AuthenticationException
-
-from fastapi import Response, Request, Query
-from fastapi.responses import StreamingResponse
 
 
 class DeviceGroupRouter(RouterWrapper):
@@ -55,23 +54,13 @@ class DeviceGroupRouter(RouterWrapper):
             return StreamingResponse(self.device_group_service.get_device_group_status_stream_by_id(group_id), media_type="text/event-stream")
 
 
-        @self.router.get("/{group_id}/cameras")
-        def get_device_group(group_id: int) -> Sequence[Camera]:
-            return self.device_group_service.get_device_group_cameras_by_id(group_id)
-
-
         @self.router.get("/{group_id}/reeds")
-        def get_device_group(group_id: int) -> Sequence[Reed]:
+        def get_device_group_reeds(group_id: int) -> Sequence[Reed]:
             return self.device_group_service.get_device_group_reeds_by_id(group_id)
 
 
-        @self.router.put("/{group_id}/cameras")
-        def update_device_group(group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
-            return self.device_group_service.update_device_group_cameras_by_id(group_id, camera_ips)
-
-
         @self.router.put("/{group_id}/reeds")
-        def update_device_group(group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
+        def update_device_group_reeds(group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
             return self.device_group_service.update_device_group_reeds_by_id(group_id, reed_pins)
 
 

@@ -45,11 +45,6 @@ class CameraRouter(RouterWrapper):
             return self.camera_service.get_all()
 
 
-        @self.router.get("/{ip}/status")
-        def get_camera_status_by_ip(ip: str):
-            return self.camera_service.get_status_by_ip(ip).to_dict()
-
-
         @self.router.get("/{ip}/stream")
         async def get_camera_stream_by_ip(request: Request, ip: str):
             async def stream_frames():

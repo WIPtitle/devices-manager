@@ -24,7 +24,3 @@ class CameraRepository(ABC):
     @abstractmethod
     def find_all(self) -> Sequence[Camera]:
         pass
-
-    @abstractmethod
-    def update_listening(self, camera: Camera, listening: bool):
-        pass

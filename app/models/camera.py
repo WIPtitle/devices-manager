@@ -9,7 +9,6 @@ class CameraInputDto(SQLModel):
     username: str
     password: str
     path: str
-    sensibility: int  # Percentage of camera area for minimum area of motion
     name: str
 
 
@@ -19,8 +18,6 @@ class Camera(SQLModel, table=True):
     username: str
     password: str
     path: str
-    sensibility: int # Percentage of camera area for minimum area of motion
-    listening: bool
     name: str
 
 
@@ -32,8 +29,6 @@ class Camera(SQLModel, table=True):
             username=dto.username,
             password=dto.password,
             path=dto.path,
-            sensibility=dto.sensibility,
-            listening=False,
             name=dto.name
         )
 

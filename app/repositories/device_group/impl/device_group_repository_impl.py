@@ -2,12 +2,10 @@ from typing import Sequence
 
 from sqlmodel import select
 
-from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.not_found_exception import NotFoundException
-from app.models.camera import Camera
+from app.models.device_group import DeviceGroup
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.reed import Reed
-from app.models.device_group import DeviceGroup
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 
 
@@ -66,17 +64,6 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         return device_group
 
 
-    def find_device_group_cameras_by_id(self, device_group_id: int) -> Sequence[Camera]:
-        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
-        session = self.database_connector.get_new_session()
-        device_group = session.exec(statement).first()
-        cameras = device_group.cameras
-        session.close()
-        if device_group is None:
-            raise NotFoundException("Device group was not found")
-        return cameras
-
-
     def find_device_group_reeds_by_id(self, device_group_id: int) -> Sequence[Reed]:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         session = self.database_connector.get_new_session()
@@ -86,25 +73,6 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         if device_group is None:
             raise NotFoundException("Device group was not found")
         return reeds
-
-
-    def update_device_group_cameras_by_id(self, device_group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
-        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
-        session = self.database_connector.get_new_session()
-        device_group = session.exec(statement).unique().first()
-        if device_group is None:
-            raise NotFoundException("Device group was not found")
-
-        statement = select(Camera).where(Camera.ip.in_(camera_ips))
-        new_cameras = session.exec(statement).unique().all()
-
-        device_group.cameras = new_cameras
-
-        session.commit()
-        session.refresh(device_group)
-        cameras = device_group.cameras
-        session.close()
-        return cameras
 
 
     def update_device_group_reeds_by_id(self, device_group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:

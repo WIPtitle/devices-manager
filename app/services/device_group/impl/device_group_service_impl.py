@@ -6,14 +6,10 @@ from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
 
 from app.exceptions.bad_request_exception import BadRequestException
-from app.exceptions.conflict_request_exception import ConflictException
 from app.jobs.alarm.alarm_manager import AlarmManager
-from app.jobs.camera.cameras_listener import CamerasListener
 from app.jobs.reed.reeds_listener import ReedsListener
-from app.models.camera import Camera
 from app.models.device_group import DeviceGroup
 from app.models.enums.device_group_status import DeviceGroupStatus
-from app.models.enums.reed_status import ReedStatus
 from app.models.reed import Reed
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
@@ -25,14 +21,12 @@ from app.utils.delayed_execution import delay_execution
 class DeviceGroupServiceImpl(DeviceGroupService):
     def __init__(self, device_group_repository: DeviceGroupRepository,
                  camera_repository: CameraRepository,
-                 camera_listener: CamerasListener,
                  reed_repository: ReedRepository,
                  reed_listener: ReedsListener,
                  alarm_manager: AlarmManager,
                  rabbitmq_client: RabbitMQClient):
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
-        self.cameras_listener = camera_listener
         self.reed_repository = reed_repository
         self.reed_listener = reed_listener
         self.alarm_manager = alarm_manager
@@ -70,18 +64,8 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             yield f"data: {self.device_group_repository.find_device_group_by_id(group_id).status}\n\n"
 
 
-    def get_device_group_cameras_by_id(self, group_id: int) -> Sequence[Camera]:
-        return self.device_group_repository.find_device_group_cameras_by_id(group_id)
-
-
     def get_device_group_reeds_by_id(self, group_id: int) -> Sequence[Reed]:
         return self.device_group_repository.find_device_group_reeds_by_id(group_id)
-
-
-    def update_device_group_cameras_by_id(self, group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
-        if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
-            raise BadRequestException("Can't update while not idle")
-        return self.device_group_repository.update_device_group_cameras_by_id(group_id, camera_ips)
 
 
     def update_device_group_reeds_by_id(self, group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
@@ -122,12 +106,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def do_start_listening(self, group_id: int):
-        cameras = self.get_device_group_cameras_by_id(group_id)
         reeds = self.get_device_group_reeds_by_id(group_id)
-
-        for camera in cameras:
-            updated_camera = self.camera_repository.update_listening(camera, True)
-            self.cameras_listener.update_camera(updated_camera) # to update listening status
 
         for reed in reeds:
             self.reed_repository.update_listening(reed, True)
@@ -140,12 +119,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def do_stop_listening(self, group_id: int):
-        cameras = self.get_device_group_cameras_by_id(group_id)
         reeds = self.get_device_group_reeds_by_id(group_id)
-
-        for camera in cameras:
-            updated_camera = self.camera_repository.update_listening(camera, False)
-            self.cameras_listener.update_camera(updated_camera)  # to update listening status
 
         for reed in reeds:
             self.reed_repository.update_listening(reed, False)
