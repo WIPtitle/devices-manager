@@ -21,7 +21,7 @@ class CameraStreamThread(threading.Thread):
             '0', '-copyts',
             '-vcodec', 'copy', '-movflags', 'frag_keyframe+empty_moov', '-an', '-r', '2', '-b:v', '500k',
             '-cpu-used', '4', '-threads', '4', '-crf', '60', '-hls_flags', 'delete_segments+append_list',
-            '-f', 'hls', '-hls_time', '1', '-hls_list_size', '3', '-hls_segment_type', 'mpegts',
+            '-f', 'hls', '-hls_time', '5', '-hls_list_size', '2', '-hls_segment_type', 'mpegts',
             '-hls_segment_filename', f"static/{self.camera.ip}_%d.ts", f"static/{self.camera.ip}.m3u8"
         ]
 
