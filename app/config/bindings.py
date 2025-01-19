@@ -12,6 +12,8 @@ from app.database.impl.database_connector_impl import DatabaseConnectorImpl
 from app.exceptions.not_implemented_exception import NotImplementedException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.alarm.impl.alarm_manager_impl import AlarmManagerImpl
+from app.jobs.camera.camera_stream_manager import CameraStreamManager
+from app.jobs.camera.impl.camera_stream_manager_impl import CameraStreamManagerImpl
 from app.jobs.recording.impl.recordings_manager_impl import RecordingsManagerImpl
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.jobs.reed.impl.reeds_listener_impl import ReedsListenerImpl
@@ -59,7 +61,8 @@ reeds_listener = ReedsListenerImpl(alarm_manager, reed_repository)
 device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, reed_repository, reeds_listener, alarm_manager, rabbitmq_client)
 reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener)
 
-camera_service = CameraServiceImpl(camera_repository=camera_repository, recording_service=recording_service)
+camera_stream_manager = CameraStreamManagerImpl()
+camera_service = CameraServiceImpl(camera_repository=camera_repository, recording_service=recording_service, stream_manager=camera_stream_manager)
 
 
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
@@ -72,6 +75,7 @@ bindings[DeviceGroupRepository] = device_group_repository
 bindings[ReedRepository] = reed_repository
 
 bindings[RecordingsManager] = recording_manager
+bindings[CameraStreamManager] = camera_stream_manager
 bindings[AlarmManager] = alarm_manager
 bindings[ReedsListener] = reeds_listener
 

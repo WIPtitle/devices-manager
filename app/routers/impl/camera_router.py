@@ -1,4 +1,6 @@
 import time
+import os
+
 from typing import Sequence
 
 from fastapi import Request
@@ -42,14 +44,4 @@ class CameraRouter(RouterWrapper):
 
         @self.router.get("/{ip}/stream")
         async def get_camera_stream_by_ip(request: Request, ip: str):
-            async def stream_frames():
-                while True:
-                    frame = self.camera_service.get_current_frame(ip)
-                    yield (
-                        b"--frame\r\n"
-                        b"Content-Type: image/webp\r\n\r\n" + frame + b"\r\n"
-                    )
-                    time.sleep(1)
-                    if await request.is_disconnected():
-                        break
-            return StreamingResponse(stream_frames(), media_type="multipart/x-mixed-replace;boundary=frame")
+            return None

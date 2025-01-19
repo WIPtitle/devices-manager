@@ -21,9 +21,5 @@ class RecordingsManager:
         pass
 
     @abstractmethod
-    def get_current_frame_by_ip(self, ip: str):
-        pass
-
-    @abstractmethod
     def get_current_recording_by_camera_ip(self, camera_ip: str):
         pass

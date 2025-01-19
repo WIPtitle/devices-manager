@@ -71,13 +71,6 @@ class RecordingsManagerImpl(RecordingsManager):
         delete_file(recording.path + "/" + recording.name)
 
 
-    def get_current_frame_by_ip(self, ip: str):
-        for thread in self.threads:
-            if thread.camera.ip == ip:
-                return thread.get_current_frame()
-        raise BadRequestException(f"Camera with ip {ip} not being monitored")
-
-
     def get_current_recording_by_camera_ip(self, camera_ip: str):
         for thread in self.threads:
             if thread.recording.camera_ip == camera_ip:

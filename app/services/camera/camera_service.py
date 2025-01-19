@@ -22,5 +22,9 @@ class CameraService(ABC):
         pass
 
     @abstractmethod
-    def get_current_frame(self, ip: str):
+    def start_streaming(self, camera: Camera):
+        pass
+
+    @abstractmethod
+    def stop_streaming(self, camera: Camera):
         pass

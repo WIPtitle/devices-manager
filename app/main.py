@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.config.handlers import get_exception_handlers
 from app.routers.impl.camera_router import CameraRouter
@@ -20,6 +21,8 @@ routers: List[RouterWrapper] = [
 ]
 
 app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 for exc, handler in exception_handlers:
     app.add_exception_handler(exc, handler)
