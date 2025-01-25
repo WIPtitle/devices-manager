@@ -27,6 +27,11 @@ class RecordingRouter(RouterWrapper):
             return self.recording_service.delete_by_id(rec_id)
 
 
+        @self.router.delete("/")
+        def delete_recording_by_id() -> Sequence[Recording]:
+            return self.recording_service.delete_all()
+
+
         @self.router.get("/{rec_id}/stream")
         def stream_recording(request: Request, rec_id: int):
             return self.recording_service.stream(request, rec_id)

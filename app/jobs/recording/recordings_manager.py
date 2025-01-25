@@ -17,7 +17,7 @@ class RecordingsManager:
         pass
 
     @abstractmethod
-    def delete_recording(self, recording: Recording):
+    def delete_recording_file(self, recording: Recording):
         pass
 
     @abstractmethod

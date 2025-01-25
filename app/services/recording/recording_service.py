@@ -22,6 +22,10 @@ class RecordingService(ABC):
         pass
 
     @abstractmethod
+    def delete_all(self) -> Sequence[Recording]:
+        pass
+
+    @abstractmethod
     def get_all(self) -> Sequence[Recording]:
         pass
 

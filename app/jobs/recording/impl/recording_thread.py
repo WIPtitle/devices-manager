@@ -10,23 +10,6 @@ from ffmpeg.asyncio import FFmpeg
 from app.models.camera import Camera
 from app.models.recording import Recording
 
-'''
-command = [
-            "ffmpeg",
-            "-i",
-            f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
-            "-vf", "fps=4",
-            "-c:v", "libvpx",
-            "-b:v", "500k",
-            "-preset", "ultrafast",
-            "-cpu-used", "4",
-            "-threads", "4",
-            "-crf", "60",
-            '-loglevel', 'quiet',
-            "-an",
-            self.file_path
-        ]
-'''
 
 class RecordingThread(threading.Thread):
     def __init__(self, camera: Camera, recording: Recording):
@@ -43,10 +26,9 @@ class RecordingThread(threading.Thread):
             .option("y")
             .input(
                 f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
-                rtsp_transport="tcp",
-                rtsp_flags="prefer_tcp",
+                rtsp_transport="udp",
             )
-            .output(self.file_path, vcodec="copy")
+            .output(self.file_path, vcodec="libx264", vf="fps=4", preset="fast", an=None)
         )
 
         @ffmpeg.on("progress")

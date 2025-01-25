@@ -66,7 +66,7 @@ class RecordingsManagerImpl(RecordingsManager):
         print(f"Stopped recording for camera on {recording.camera_ip}")
 
 
-    def delete_recording(self, recording: Recording):
+    def delete_recording_file(self, recording: Recording):
         delete_file(recording.path + "/" + recording.name)
 
 
