@@ -20,11 +20,3 @@ class CameraService(ABC):
     @abstractmethod
     def get_all(self) -> Sequence[Camera]:
         pass
-
-    @abstractmethod
-    def start_streaming(self, camera: Camera):
-        pass
-
-    @abstractmethod
-    def stop_streaming(self, camera: Camera):
-        pass

@@ -43,11 +43,6 @@ class RecordingThread(threading.Thread):
                 if self.proc is None or is_unreachable or self.proc.poll() is not None:
                     is_unreachable = False
                     self.proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=10 ** 8)
-
-                stderr_output = self.proc.stderr.read()
-                if stderr_output:
-                    print("stderr:", stderr_output)
-
             except Exception as e:
                 is_unreachable = True
                 print("Exception on recording thread:", e)

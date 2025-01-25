@@ -18,10 +18,10 @@ class RecordingServiceImpl(RecordingService):
         self.camera_repository = camera_repository
         self.recording_manager = recording_manager
 
-        # If on boot some recording were not stopped properly, delete them (file is corrupted 99% of the time)
+        # If on boot some recording were not stopped properly, set them as stopped here
         for recording in self.recording_repository.find_all():
             if not recording.is_completed:
-                self.delete_by_id(recording.id)
+                self.recording_repository.set_stopped(recording)
 
 
     def get_by_id(self, rec_id: int) -> Recording:
