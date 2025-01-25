@@ -1,4 +1,5 @@
 from typing import Sequence
+from fastapi import Request
 
 from app.config.bindings import inject
 from app.exceptions.bad_request_exception import BadRequestException
@@ -27,9 +28,8 @@ class RecordingRouter(RouterWrapper):
 
 
         @self.router.get("/{rec_id}/stream")
-        def stream_recording(rec_id: int):
-            #return self.recording_service.stream(rec_id)
-            raise BadRequestException("Not implemented")
+        def stream_recording(request: Request, rec_id: int):
+            return self.recording_service.stream(request, rec_id)
 
 
         @self.router.get("/{rec_id}/download")

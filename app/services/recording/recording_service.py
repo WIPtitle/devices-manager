@@ -26,7 +26,7 @@ class RecordingService(ABC):
         pass
 
     @abstractmethod
-    def stream(self, rec_id: int):
+    def stream(self, request, rec_id: int):
         pass
 
     @abstractmethod

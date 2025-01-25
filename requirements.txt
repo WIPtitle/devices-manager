@@ -9,3 +9,4 @@ sqlmodel==0.0.22
 RPi.GPIO==0.7.1
 httpx==0.26.0
 requests==2.31.0
+python-ffmpeg==2.0.12

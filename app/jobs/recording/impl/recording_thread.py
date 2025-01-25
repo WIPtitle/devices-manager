@@ -1,24 +1,17 @@
+import asyncio
 import os
 import subprocess
 import threading
 import time
 
+from ffmpeg import Progress
+from ffmpeg.asyncio import FFmpeg
+
 from app.models.camera import Camera
 from app.models.recording import Recording
 
-
-class RecordingThread(threading.Thread):
-    def __init__(self, camera: Camera, recording: Recording):
-        super().__init__()
-        self.camera = camera
-        self.recording = recording
-        self.running = True
-        self.file_path = os.path.join(recording.path, recording.name)
-        self.proc = None
-
-
-    def run(self):
-        command = [
+'''
+command = [
             "ffmpeg",
             "-i",
             f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
@@ -33,25 +26,41 @@ class RecordingThread(threading.Thread):
             "-an",
             self.file_path
         ]
+'''
 
-        is_unreachable = True
+class RecordingThread(threading.Thread):
+    def __init__(self, camera: Camera, recording: Recording):
+        super().__init__()
+        self.camera = camera
+        self.recording = recording
+        self.file_path = os.path.join(recording.path, recording.name)
+        self.running = None
 
-        while self.running:
-            time.sleep(1) # check every second if process is still running
 
-            try:
-                if self.proc is None or is_unreachable or self.proc.poll() is not None:
-                    is_unreachable = False
-                    self.proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=10 ** 8)
-            except Exception as e:
-                is_unreachable = True
-                print("Exception on recording thread:", e)
+    async def start_ffmpeg(self):
+        ffmpeg = (
+            FFmpeg()
+            .option("y")
+            .input(
+                f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
+                rtsp_transport="tcp",
+                rtsp_flags="prefer_tcp",
+            )
+            .output(self.file_path, vcodec="copy")
+        )
 
-        if self.proc is not None:
-            self.proc.terminate()
+        @ffmpeg.on("progress")
+        def time_to_terminate(progress: Progress):
+            if self.running is not None and self.running == False:
+                ffmpeg.terminate()
+
+        await ffmpeg.execute()
+
+
+    def run(self):
+        self.running = True
+        asyncio.run(self.start_ffmpeg())
 
 
     def stop(self):
         self.running = False
-        if self.proc is not None:
-            self.proc.terminate()
