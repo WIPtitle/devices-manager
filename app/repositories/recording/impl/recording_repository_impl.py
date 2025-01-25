@@ -76,7 +76,7 @@ class RecordingRepositoryImpl(RecordingRepository):
 
 
     def find_all(self) -> Sequence[Recording]:
-        statement = select(Recording)
+        statement = select(Recording).order_by(Recording.id.desc())
         session = self.database_connector.get_new_session()
         result = session.exec(statement).all()
         session.close()

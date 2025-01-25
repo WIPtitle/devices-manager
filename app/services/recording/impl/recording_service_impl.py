@@ -18,10 +18,10 @@ class RecordingServiceImpl(RecordingService):
         self.camera_repository = camera_repository
         self.recording_manager = recording_manager
 
-        # If on boot some recording were not stopped properly, set them to stopped
+        # If on boot some recording were not stopped properly, delete them (file is corrupted 99% of the time)
         for recording in self.recording_repository.find_all():
             if not recording.is_completed:
-                self.recording_repository.set_stopped(recording)
+                self.delete_by_id(recording.id)
 
 
     def get_by_id(self, rec_id: int) -> Recording:
@@ -38,7 +38,7 @@ class RecordingServiceImpl(RecordingService):
             delay_execution(
                 func=self.restart,
                 args=(camera.ip,),
-                delay_seconds= 30 * 60) # restart recording after 30 minutes
+                delay_seconds= 2 * 60) # restart recording after n minutes to have separate files
 
             return recording
         else:
@@ -88,9 +88,6 @@ class RecordingServiceImpl(RecordingService):
         file_path = os.path.join(recording.path, recording.name)
         return FileResponse(file_path, media_type="video/webm", filename=recording.name)
 
-
-    def get_current_frame(self, ip: str):
-        return self.recording_manager.get_current_frame_by_ip(ip)
 
 
 def iterfile(file_path: str):

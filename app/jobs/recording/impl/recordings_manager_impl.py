@@ -1,7 +1,6 @@
 import glob
 import os
 
-from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.recording.impl.recording_thread import RecordingThread
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.models.disk_usage import DiskUsage
@@ -55,7 +54,7 @@ class RecordingsManagerImpl(RecordingsManager):
         thread = RecordingThread(camera, recording)
         thread.start()
         self.threads.append(thread)
-        print(f"Start recording for camera on {recording.camera_ip}")
+        print(f"Start recording for camera on {recording.camera_ip}: {os.path.join(recording.path, recording.name)}")
 
 
     def stop_recording(self, recording: Recording):

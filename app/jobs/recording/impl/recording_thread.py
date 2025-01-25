@@ -14,6 +14,7 @@ class RecordingThread(threading.Thread):
         self.recording = recording
         self.running = True
         self.file_path = os.path.join(recording.path, recording.name)
+        self.proc = None
 
 
     def run(self):
@@ -33,24 +34,29 @@ class RecordingThread(threading.Thread):
             self.file_path
         ]
 
-        proc = None
         is_unreachable = True
 
         while self.running:
             time.sleep(1) # check every second if process is still running
 
             try:
-                if proc is None or is_unreachable or proc.poll() is not None:
-                    proc = subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=10 ** 8)
+                if self.proc is None or is_unreachable or self.proc.poll() is not None:
                     is_unreachable = False
+                    self.proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=10 ** 8)
+
+                stderr_output = self.proc.stderr.read()
+                if stderr_output:
+                    print("stderr:", stderr_output)
+
             except Exception as e:
                 is_unreachable = True
                 print("Exception on recording thread:", e)
 
-        if proc is not None:
-            proc.terminate()
+        if self.proc is not None:
+            self.proc.terminate()
 
 
     def stop(self):
         self.running = False
-
+        if self.proc is not None:
+            self.proc.terminate()

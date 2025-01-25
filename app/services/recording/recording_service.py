@@ -33,6 +33,3 @@ class RecordingService(ABC):
     def download(self, rec_id: int):
         pass
 
-    @abstractmethod
-    def get_current_frame(self, ip: str):
-        pass
