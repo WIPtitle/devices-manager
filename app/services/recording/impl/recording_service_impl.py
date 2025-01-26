@@ -92,7 +92,7 @@ class RecordingServiceImpl(RecordingService):
         file_path = os.path.join(recording.path, recording.name)
 
         return range_requests_response(
-            request, file_path=file_path, content_type="video/mp4"
+            request, file_path=file_path, content_type="video/x-matroska"
         )
 
 
@@ -102,7 +102,7 @@ class RecordingServiceImpl(RecordingService):
             raise BadRequestException("Recording is not yet completed")
 
         file_path = os.path.join(recording.path, recording.name)
-        return FileResponse(file_path, media_type="video/mp4", filename=recording.name)
+        return FileResponse(file_path, media_type="video/x-matroska", filename=recording.name)
 
 
 # Shamelessly copied from https://github.com/fastapi/fastapi/issues/1240#issuecomment-1055396884 to let

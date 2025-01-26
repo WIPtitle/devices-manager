@@ -4,7 +4,7 @@ import os
 from app.jobs.recording.impl.recording_thread import RecordingThread
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.models.disk_usage import DiskUsage
-from app.models.recording import Recording, get_recordings_path
+from app.models.recording import Recording, get_recordings_path, RecordingInputDto
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.recording.recording_repository import RecordingRepository
 
@@ -51,7 +51,7 @@ class RecordingsManagerImpl(RecordingsManager):
                 recording = self.recording_repository.find_by_name(deleted_filename)
                 self.recording_repository.delete_by_id(recording.id)
 
-        thread = RecordingThread(camera, recording)
+        thread = RecordingThread(camera, recording, self.thread_error_callback)
         thread.start()
         self.threads.append(thread)
         print(f"Start recording for camera on {recording.camera_ip}: {os.path.join(recording.path, recording.name)}")
@@ -75,3 +75,14 @@ class RecordingsManagerImpl(RecordingsManager):
             if thread.recording.camera_ip == camera_ip:
                 return thread.recording
         return None
+
+
+    def thread_error_callback(self, recording: Recording):
+        # no need to restart since restart operation is already scheduled for the camera ip, just
+        # create a new recording and start it so if something fails we will have two separate files, who cares
+        print(f"Error while recording for camera on {recording.camera_ip}, restarting...")
+
+        camera = self.camera_repository.find_by_ip(recording.camera_ip)  # will throw if not found
+        recording = self.recording_repository.create(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip)))
+        self.start_recording(recording)
+
