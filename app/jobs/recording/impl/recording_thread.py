@@ -29,7 +29,7 @@ class RecordingThread(threading.Thread):
                     f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
                     rtsp_transport="udp",
                 )
-                .output(self.file_path, vcodec="libx264", vf="fps=4", preset="fast", an=None, reset_timestamps=1)
+                .output(self.file_path, vcodec="libx264", vf="fps=4", preset="fast", an=None, reset_timestamps=1, f="matroska", cluster_time_limit=5000)
             )
 
             @ffmpeg.on("progress")

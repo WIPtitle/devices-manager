@@ -39,7 +39,7 @@ class RecordingServiceImpl(RecordingService):
             delay_execution(
                 func=self.restart,
                 args=(camera.ip,),
-                delay_seconds= 2 * 60) # restart recording after n minutes to have separate files
+                delay_seconds= 60 * 60) # restart recording after n minutes to have separate files
 
             return recording
         else:
