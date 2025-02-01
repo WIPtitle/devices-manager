@@ -136,7 +136,6 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         for reed in reeds:
             self.reed_repository.update_listening(reed, False)
 
-        # Emit a stop alarm event even if not in alarm state, at worst it will be ignored
         self.alarm_manager.stop_alarm()
 
         group = self.device_group_repository.find_device_group_by_id(group_id)

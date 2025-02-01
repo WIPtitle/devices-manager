@@ -10,6 +10,7 @@ class CameraInputDto(SQLModel):
     password: str
     path: str
     name: str
+    always_recording: bool
 
 
 class Camera(SQLModel, table=True):
@@ -19,6 +20,7 @@ class Camera(SQLModel, table=True):
     password: str
     path: str
     name: str
+    always_recording: bool
 
 
     @classmethod
@@ -29,7 +31,8 @@ class Camera(SQLModel, table=True):
             username=dto.username,
             password=dto.password,
             path=dto.path,
-            name=dto.name
+            name=dto.name,
+            always_recording=dto.always_recording
         )
 
     def is_reachable(self):

@@ -13,9 +13,10 @@ class CameraServiceImpl(CameraService):
         self.camera_repository = camera_repository
         self.recording_service = recording_service
 
-        # Start recording existing cameras on boot
+        # Start recording existing cameras on boot (only if always recording is set to true)
         for camera in self.camera_repository.find_all():
-            self.recording_service.create_and_start(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip)))
+            if camera.always_recording:
+                self.recording_service.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=camera.always_recording)))
 
 
     def get_by_ip(self, ip: str) -> Camera:
@@ -30,8 +31,9 @@ class CameraServiceImpl(CameraService):
 
         camera = self.camera_repository.create(camera)
 
-        # Start recording new camera
-        self.recording_service.create_and_start(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip)))
+        # Start recording new camera if needed
+        if camera.always_recording:
+            self.recording_service.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=camera.always_recording)))
         return camera
 
 

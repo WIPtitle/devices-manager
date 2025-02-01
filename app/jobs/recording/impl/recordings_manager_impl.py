@@ -54,7 +54,7 @@ class RecordingsManagerImpl(RecordingsManager):
         thread = RecordingThread(camera, recording, self.thread_error_callback)
         thread.start()
         self.threads.append(thread)
-        print(f"Start recording for camera on {recording.camera_ip}: {os.path.join(recording.path, recording.name)}")
+        print(f"Start recording for camera on {recording.camera_ip}")
 
 
     def stop_recording(self, recording: Recording):
@@ -83,6 +83,6 @@ class RecordingsManagerImpl(RecordingsManager):
         print(f"Error while recording for camera on {recording.camera_ip}, restarting...")
 
         camera = self.camera_repository.find_by_ip(recording.camera_ip)  # will throw if not found
-        recording = self.recording_repository.create(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip)))
+        recording = self.recording_repository.create(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=camera.always_recording)))
         self.start_recording(recording)
 

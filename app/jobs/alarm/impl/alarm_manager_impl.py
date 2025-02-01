@@ -11,10 +11,12 @@ from app.jobs.alarm.alarm_manager import AlarmManager
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.enums.pir_status import PirStatus
 from app.models.enums.reed_status import ReedStatus
+from app.models.recording import Recording, RecordingInputDto
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.pir.pir_repository import PirRepository
 from app.repositories.reed.reed_repository import ReedRepository
+from app.services.recording.recording_service import RecordingService
 from app.utils.delayed_execution import delay_execution
 
 
@@ -26,11 +28,13 @@ from app.utils.delayed_execution import delay_execution
 class AlarmManagerImpl(AlarmManager):
     def __init__(self,
                  rabbitmq_client: RabbitMQClient,
+                 recording_service: RecordingService,
                  device_group_repository: DeviceGroupRepository,
                  camera_repository: CameraRepository,
                  reed_repository: ReedRepository,
                  pir_repository: PirRepository):
         self.rabbitmq_client = rabbitmq_client
+        self.recording_service = recording_service
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
         self.reed_repository = reed_repository
@@ -88,18 +92,22 @@ class AlarmManagerImpl(AlarmManager):
 
         # Find listening group and set it to alarm
         group = self.device_group_repository.find_device_group_by_id(group_id)
-        if group.status == DeviceGroupStatus.LISTENING:
-            group.status = DeviceGroupStatus.ALARM
-            self.device_group_repository.update_device_group(group)
+        group.status = DeviceGroupStatus.ALARM
+        self.device_group_repository.update_device_group(group)
+
+        # Start recording for cameras that are not always recording to save videos of alarm event
+        for camera in self.camera_repository.find_all():
+            if not camera.always_recording:
+                self.recording_service.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=False)))
 
 
-    # This of course gets called even if alarm is not running, I chose to emit the alarm stopped event anyway
-    # and to ignore it on services that don't need it.
-    # Currently only audio manager needs it to stop audio if still running, if it is not running it's not a problem.
-    # Stop alarm DOESN'T MEAN that devices are not listening, it just stops recording and audio: this can happen
-    # if user manually deactivates alarm, but it can also happen after a certain amount of time because
-    # we do not want audio and recordings to go on forever (still, it will trigger again if devices change status again).
     def stop_alarm(self):
-        while not self.rabbitmq_client.publish(AlarmStopped(int(time.time()))):
-            time.sleep(1)
-        self.alarm = False
+        # Since this gets also called on stop listening, if alarm is not triggered there is no need to stop it
+        if self.alarm:
+            while not self.rabbitmq_client.publish(AlarmStopped(int(time.time()))):
+                time.sleep(1)
+
+            for camera in self.camera_repository.find_all():
+                if not camera.always_recording:
+                    self.recording_service.stop_by_camera_ip(camera.ip)
+            self.alarm = False

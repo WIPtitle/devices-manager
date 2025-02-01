@@ -61,7 +61,7 @@ device_group_repository = DeviceGroupRepositoryImpl(database_connector=database_
 
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
-alarm_manager = AlarmManagerImpl(rabbitmq_client, device_group_repository, camera_repository, reed_repository, pir_repository)
+alarm_manager = AlarmManagerImpl(rabbitmq_client, recording_service, device_group_repository, camera_repository, reed_repository, pir_repository)
 reeds_listener = ReedsListenerImpl(alarm_manager, reed_repository)
 pirs_listener = PirsListenerImpl(alarm_manager, pir_repository)
 device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, reed_repository, reeds_listener, alarm_manager, rabbitmq_client)
