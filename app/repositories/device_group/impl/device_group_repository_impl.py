@@ -5,6 +5,7 @@ from sqlmodel import select
 from app.exceptions.not_found_exception import NotFoundException
 from app.models.device_group import DeviceGroup
 from app.models.enums.device_group_status import DeviceGroupStatus
+from app.models.pir import Pir
 from app.models.reed import Reed
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 
@@ -92,6 +93,36 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         reeds = device_group.reeds
         session.close()
         return reeds
+
+
+    def find_device_group_pirs_by_id(self, device_group_id: int) -> Sequence[Pir]:
+        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
+        session = self.database_connector.get_new_session()
+        device_group = session.exec(statement).first()
+        pirs = device_group.pirs
+        session.close()
+        if device_group is None:
+            raise NotFoundException("Device group was not found")
+        return pirs
+
+
+    def update_device_group_pirs_by_id(self, device_group_id: int, pir_pins: Sequence[int]) -> Sequence[Pir]:
+        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
+        session = self.database_connector.get_new_session()
+        device_group = session.exec(statement).unique().first()
+        if device_group is None:
+            raise NotFoundException("Device group was not found")
+
+        statement = select(Pir).where(Pir.gpio_pin_number.in_(pir_pins))
+        new_pirs = session.exec(statement).unique().all()
+
+        device_group.pirs = new_pirs
+
+        session.commit()
+        session.refresh(device_group)
+        pirs = device_group.pirs
+        session.close()
+        return pirs
 
 
     def find_all_devices_groups(self) -> Sequence[DeviceGroup]:

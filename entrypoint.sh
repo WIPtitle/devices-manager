@@ -7,8 +7,6 @@ pip install --upgrade pip
 apt-get update && apt-get install -y libpq-dev git ffmpeg libsm6 libxext6
 pip install --no-cache-dir -r requirements.txt
 
-mkdir static
-
 uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 
 # Loop until server up to force initialization

@@ -5,6 +5,7 @@ from sqlmodel import select
 from app.database.database_connector import DatabaseConnector
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.not_found_exception import NotFoundException
+from app.models.pir import Pir
 from app.models.reed import Reed
 from app.repositories.reed.reed_repository import ReedRepository
 
@@ -29,7 +30,13 @@ class ReedRepositoryImpl(ReedRepository):
         try:
             self.find_by_gpio_pin_number(reed.gpio_pin_number)
         except NotFoundException:
+            statement = select(Pir).where(Pir.gpio_pin_number == reed.gpio_pin_number)
+
             session = self.database_connector.get_new_session()
+            pir_db = session.exec(statement).first()
+            if pir_db is not None:
+                raise NotFoundException("There is a PIR sensor with the same GPIO pin number")
+
             session.add(reed)
             session.commit()
             session.refresh(reed)

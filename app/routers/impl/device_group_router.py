@@ -10,6 +10,7 @@ from app.exceptions.bad_request_exception import BadRequestException
 from app.models.device_group import DeviceGroup, DeviceGroupInputDto
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.reed import Reed
+from app.models.pir import Pir
 from app.routers.router_wrapper import RouterWrapper
 from app.services.device_group.device_group_service import DeviceGroupService
 
@@ -62,6 +63,16 @@ class DeviceGroupRouter(RouterWrapper):
         @self.router.put("/{group_id}/reeds")
         def update_device_group_reeds(group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
             return self.device_group_service.update_device_group_reeds_by_id(group_id, reed_pins)
+
+
+        @self.router.get("/{group_id}/pirs")
+        def get_device_group_pirs(group_id: int) -> Sequence[Pir]:
+            return self.device_group_service.get_device_group_pirs_by_id(group_id)
+
+
+        @self.router.put("/{group_id}/pirs")
+        def update_device_group_pirs(group_id: int, pirs_pins: Sequence[int]) -> Sequence[Pir]:
+            return self.device_group_service.update_device_group_pirs_by_id(group_id, pirs_pins)
 
 
         @self.router.delete("/{group_id}")

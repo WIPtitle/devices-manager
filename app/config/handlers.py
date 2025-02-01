@@ -7,6 +7,7 @@ from app.exceptions.conflict_request_exception import ConflictException
 from app.exceptions.internal_error_exception import InternalErrorException
 from app.exceptions.not_found_exception import NotFoundException
 from app.exceptions.not_implemented_exception import NotImplementedException
+from app.exceptions.pirs_listener_exception import PirsListenerException
 from app.exceptions.reeds_listener_exception import ReedsListenerException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.exceptions.validation_exception import ValidationException
@@ -43,6 +44,12 @@ async def validation_exception_handler(request: Request, exc: ValidationExceptio
     )
 
 async def reeds_listener_exception_handler(request: Request, exc: ReedsListenerException):
+    return JSONResponse(
+        status_code=500,
+        content={"message": exc.message},
+    )
+
+async def pirs_listener_exception_handler(request: Request, exc: PirsListenerException):
     return JSONResponse(
         status_code=500,
         content={"message": exc.message},

@@ -12,6 +12,8 @@ from app.database.impl.database_connector_impl import DatabaseConnectorImpl
 from app.exceptions.not_implemented_exception import NotImplementedException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.alarm.impl.alarm_manager_impl import AlarmManagerImpl
+from app.jobs.pir.impl.pirs_listener_impl import PirsListenerImpl
+from app.jobs.pir.pirs_listener import PirsListener
 from app.jobs.recording.impl.recordings_manager_impl import RecordingsManagerImpl
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.jobs.reed.impl.reeds_listener_impl import ReedsListenerImpl
@@ -20,6 +22,8 @@ from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.camera.impl.camera_repository_impl import CameraRepositoryImpl
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.device_group.impl.device_group_repository_impl import DeviceGroupRepositoryImpl
+from app.repositories.pir.impl.pir_repository_impl import PirRepositoryImpl
+from app.repositories.pir.pir_repository import PirRepository
 from app.repositories.recording.impl.recording_repository_impl import RecordingRepositoryImpl
 from app.repositories.recording.recording_repository import RecordingRepository
 from app.repositories.reed.impl.reed_repository_impl import ReedRepositoryImpl
@@ -28,6 +32,8 @@ from app.services.camera.camera_service import CameraService
 from app.services.camera.impl.camera_service_impl import CameraServiceImpl
 from app.services.device_group.device_group_service import DeviceGroupService
 from app.services.device_group.impl.device_group_service_impl import DeviceGroupServiceImpl
+from app.services.pir.impl.pir_service_impl import PirServiceImpl
+from app.services.pir.pir_service import PirService
 from app.services.recording.impl.recording_service_impl import RecordingServiceImpl
 from app.services.recording.recording_service import RecordingService
 from app.services.reed.impl.reed_service_impl import ReedServiceImpl
@@ -49,15 +55,18 @@ rabbitmq_client = RabbitMQClientImpl.from_config(
 
 camera_repository = CameraRepositoryImpl(database_connector=database_connector)
 reed_repository = ReedRepositoryImpl(database_connector=database_connector)
+pir_repository = PirRepositoryImpl(database_connector=database_connector)
 recording_repository = RecordingRepositoryImpl(database_connector=database_connector)
 device_group_repository = DeviceGroupRepositoryImpl(database_connector=database_connector)
 
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
-alarm_manager = AlarmManagerImpl(rabbitmq_client, device_group_repository, camera_repository, reed_repository)
+alarm_manager = AlarmManagerImpl(rabbitmq_client, device_group_repository, camera_repository, reed_repository, pir_repository)
 reeds_listener = ReedsListenerImpl(alarm_manager, reed_repository)
+pirs_listener = PirsListenerImpl(alarm_manager, pir_repository)
 device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, reed_repository, reeds_listener, alarm_manager, rabbitmq_client)
 reed_service = ReedServiceImpl(reed_repository=reed_repository, reeds_listener=reeds_listener)
+pir_service = PirServiceImpl(pir_repository=pir_repository, pirs_listener=pirs_listener)
 
 camera_service = CameraServiceImpl(camera_repository=camera_repository, recording_service=recording_service)
 
@@ -70,15 +79,18 @@ bindings[CameraRepository] = camera_repository
 bindings[RecordingRepository] = recording_repository
 bindings[DeviceGroupRepository] = device_group_repository
 bindings[ReedRepository] = reed_repository
+bindings[PirRepository] = pir_repository
 
 bindings[RecordingsManager] = recording_manager
 bindings[AlarmManager] = alarm_manager
 bindings[ReedsListener] = reeds_listener
+bindings[PirsListener] = pirs_listener
 
 bindings[CameraService] = camera_service
 bindings[RecordingService] = recording_service
 bindings[DeviceGroupService] = device_group_service
 bindings[ReedService] = reed_service
+bindings[PirService] = pir_service
 
 bindings[AuthClient] = AuthClient()
 

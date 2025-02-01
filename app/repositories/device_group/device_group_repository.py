@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Sequence
 
 from app.models.device_group import DeviceGroup
+from app.models.pir import Pir
 from app.models.reed import Reed
 
 
@@ -29,6 +30,14 @@ class DeviceGroupRepository(ABC):
 
     @abstractmethod
     def update_device_group_reeds_by_id(self, device_group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
+        pass
+
+    @abstractmethod
+    def find_device_group_pirs_by_id(self, device_group_id: int) -> Sequence[Pir]:
+        pass
+
+    @abstractmethod
+    def update_device_group_pirs_by_id(self, device_group_id: int, pir_pins: Sequence[int]) -> Sequence[Pir]:
         pass
 
     @abstractmethod

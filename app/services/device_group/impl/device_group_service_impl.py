@@ -10,6 +10,7 @@ from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.reed.reeds_listener import ReedsListener
 from app.models.device_group import DeviceGroup
 from app.models.enums.device_group_status import DeviceGroupStatus
+from app.models.pir import Pir
 from app.models.reed import Reed
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
@@ -72,6 +73,17 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Can't update while not idle")
         return self.device_group_repository.update_device_group_reeds_by_id(group_id, reed_pins)
+
+
+    def get_device_group_pirs_by_id(self, group_id: int) -> Sequence[Pir]:
+        return self.device_group_repository.find_device_group_pirs_by_id(group_id)
+
+
+    def update_device_group_pirs_by_id(self, group_id: int, pir_pins: Sequence[int]) -> Sequence[Pir]:
+        if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
+            raise BadRequestException("Can't update while not idle")
+        return self.device_group_repository.update_device_group_pirs_by_id(group_id, pir_pins)
+
 
 
     def get_all_device_groups(self) -> Sequence[DeviceGroup]:
