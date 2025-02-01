@@ -34,8 +34,9 @@ class RecordingThread(threading.Thread):
 
             @ffmpeg.on("progress")
             def time_to_terminate(progress: Progress):
-                if self.running is not None and self.running == False:
+                if self.running is not None and not self.running:
                     ffmpeg.terminate()
+                    self.running = None
 
             await ffmpeg.execute()
 
@@ -52,3 +53,5 @@ class RecordingThread(threading.Thread):
 
     def stop(self):
         self.running = False
+        while self.running is not None:
+            time.sleep(0.1)
