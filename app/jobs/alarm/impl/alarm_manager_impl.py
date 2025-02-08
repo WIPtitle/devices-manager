@@ -63,9 +63,9 @@ class AlarmManagerImpl(AlarmManager):
     def on_pir_changed_status(self, pir_pin: int, status: PirStatus):
         pir = self.pir_repository.find_by_gpio_pin_number(pir_pin)
         group = self.device_group_repository.find_listening_device_group()
-
+        print("PIR status changed, deciding if alarm should be triggered...")
         if status == PirStatus.MOVEMENT and not self.alarm:
-            print(f"Changed status pir: {status}, starting alarm")
+            print(f"Triggering alarm")
 
             self.alarm = True
             while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
