@@ -75,6 +75,7 @@ class PirsListenerImpl(PirsListener):
 
             for pin in self.pir_infos.keys():
                 current_status = read_current_status(pin)
+                print("Current status: ", current_status)
                 if current_status != self.pir_infos.get(pin):
                     self.pir_infos[pin] = current_status
 

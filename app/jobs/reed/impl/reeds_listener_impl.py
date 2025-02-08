@@ -90,6 +90,7 @@ class ReedsListenerImpl(ReedsListener):
 
             for pin in self.reed_infos.keys():
                 current_status = read_current_status(pin, self.reed_infos.get(pin)[0], self.reed_infos.get(pin)[1])
+                print("Current status: ", current_status)
                 if current_status != self.reed_infos.get(pin)[2]:
                     self.reed_infos[pin] = (
                         self.reed_infos.get(pin)[0],
