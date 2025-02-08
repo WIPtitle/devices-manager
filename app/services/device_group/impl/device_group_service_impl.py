@@ -14,6 +14,7 @@ from app.models.pir import Pir
 from app.models.reed import Reed
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
+from app.repositories.pir.pir_repository import PirRepository
 from app.repositories.reed.reed_repository import ReedRepository
 from app.services.device_group.device_group_service import DeviceGroupService
 from app.utils.delayed_execution import delay_execution
@@ -23,13 +24,13 @@ class DeviceGroupServiceImpl(DeviceGroupService):
     def __init__(self, device_group_repository: DeviceGroupRepository,
                  camera_repository: CameraRepository,
                  reed_repository: ReedRepository,
-                 reed_listener: ReedsListener,
+                 pir_repository: PirRepository,
                  alarm_manager: AlarmManager,
                  rabbitmq_client: RabbitMQClient):
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
         self.reed_repository = reed_repository
-        self.reed_listener = reed_listener
+        self.pir_repository = pir_repository
         self.alarm_manager = alarm_manager
         self.rabbitmq_client = rabbitmq_client
 
@@ -119,9 +120,12 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
     def do_start_listening(self, group_id: int):
         reeds = self.get_device_group_reeds_by_id(group_id)
-
         for reed in reeds:
             self.reed_repository.update_listening(reed, True)
+
+        pirs = self.get_device_group_pirs_by_id(group_id)
+        for pir in pirs:
+            self.pir_repository.update_listening(pir, True)
 
         group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.LISTENING
@@ -132,9 +136,12 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
     def do_stop_listening(self, group_id: int):
         reeds = self.get_device_group_reeds_by_id(group_id)
-
         for reed in reeds:
             self.reed_repository.update_listening(reed, False)
+
+        pirs = self.get_device_group_pirs_by_id(group_id)
+        for pir in pirs:
+            self.pir_repository.update_listening(pir, False)
 
         self.alarm_manager.stop_alarm()
 
