@@ -43,7 +43,6 @@ class AlarmManagerImpl(AlarmManager):
 
 
     def on_reed_changed_status(self, reed_pin: int, status: ReedStatus):
-        print(f"Changed status reed received: {status}, ALARM: {self.alarm}")
         reed = self.reed_repository.find_by_gpio_pin_number(reed_pin)
         group = self.device_group_repository.find_listening_device_group()
 
@@ -51,6 +50,7 @@ class AlarmManagerImpl(AlarmManager):
         # unless reed is closed after. If closed, nothing really happens, but if opened again another changed status
         # event will be triggered and this time it will start the alarm.
         if status == ReedStatus.OPEN and not self.alarm:
+            print(f"Changed status reed: {status}, starting alarm")
             self.alarm = True
             while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
                 time.sleep(1)
@@ -61,11 +61,12 @@ class AlarmManagerImpl(AlarmManager):
 
 
     def on_pir_changed_status(self, pir_pin: int, status: PirStatus):
-        print(f"Changed status pir received: {status}, ALARM: {self.alarm}")
         pir = self.pir_repository.find_by_gpio_pin_number(pir_pin)
         group = self.device_group_repository.find_listening_device_group()
 
         if status == PirStatus.MOVEMENT and not self.alarm:
+            print(f"Changed status pir: {status}, starting alarm")
+
             self.alarm = True
             while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
                 time.sleep(1)
