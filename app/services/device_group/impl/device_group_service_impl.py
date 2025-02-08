@@ -119,6 +119,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
 
     def do_start_listening(self, group_id: int):
+        group = self.device_group_repository.find_device_group_by_id(group_id)
+        group.status = DeviceGroupStatus.LISTENING
+        self.device_group_repository.update_device_group(group)
+
         reeds = self.get_device_group_reeds_by_id(group_id)
         for reed in reeds:
             self.reed_repository.update_listening(reed, True)
@@ -127,9 +131,6 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         for pir in pirs:
             self.pir_repository.update_listening(pir, True)
 
-        group = self.device_group_repository.find_device_group_by_id(group_id)
-        group.status = DeviceGroupStatus.LISTENING
-        self.device_group_repository.update_device_group(group)
         while not self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))):
             time.sleep(1)
 
