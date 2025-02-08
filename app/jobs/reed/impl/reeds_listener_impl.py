@@ -96,7 +96,6 @@ class ReedsListenerImpl(ReedsListener):
                         self.reed_infos.get(pin)[1],
                         current_status
                     )
-                    print(f"Status has changed for reed on gpio {pin}: {current_status.value}")
 
                     if self.reed_repository.find_by_gpio_pin_number(pin).listening:
                         # Alarm manager should be interacted with only when alarm is on
