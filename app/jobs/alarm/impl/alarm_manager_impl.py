@@ -62,7 +62,7 @@ class AlarmManagerImpl(AlarmManager):
 
     def on_pir_changed_status(self, pir_pin: int, status: PirStatus):
         print(f"Changed status pir received: {status}, ALARM: {self.alarm}")
-        reed = self.pir_repository.find_by_gpio_pin_number(pir_pin)
+        pir = self.pir_repository.find_by_gpio_pin_number(pir_pin)
         group = self.device_group_repository.find_listening_device_group()
 
         if status == PirStatus.MOVEMENT and not self.alarm:
@@ -71,7 +71,7 @@ class AlarmManagerImpl(AlarmManager):
                 time.sleep(1)
             delay_execution(
                 func=self.trigger_alarm,
-                args=(PirAlarm(reed.name, int(time.time())), group.id),
+                args=(PirAlarm(pir.name, int(time.time())), group.id),
                 delay_seconds=group.wait_to_fire_alarm)
 
 

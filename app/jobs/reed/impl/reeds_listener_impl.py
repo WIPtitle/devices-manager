@@ -86,7 +86,7 @@ class ReedsListenerImpl(ReedsListener):
 
     def monitor_pins(self):
         while self.running:
-            time.sleep(1) # check every second
+            time.sleep(0.5) # check every half second
 
             for pin in self.reed_infos.keys():
                 current_status = read_current_status(pin, self.reed_infos.get(pin)[0], self.reed_infos.get(pin)[1])
