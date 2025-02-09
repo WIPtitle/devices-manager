@@ -10,7 +10,7 @@ class RecordingService(ABC):
         pass
 
     @abstractmethod
-    def create_and_start_recording(self, recording: Recording, auto_restart: bool = True) -> Recording:
+    def create_and_start_recording(self, recording: Recording, auto_restart: bool) -> Recording:
         pass
 
     @abstractmethod

@@ -81,7 +81,7 @@ class ReedsListenerImpl(ReedsListener):
         if self.reed_infos.get(reed.gpio_pin_number) is None:
             raise ReedsListenerException(f"Reed with pin {reed.gpio_pin_number} not being monitored")
         else:
-            return self.reed_infos.get(reed.gpio_pin_number)[2]
+            return read_current_status(reed.gpio_pin_number, reed.vcc, reed.normally_closed)
 
 
     def monitor_pins(self):

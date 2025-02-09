@@ -99,7 +99,7 @@ class AlarmManagerImpl(AlarmManager):
         # Start recording for cameras that are not always recording to save videos of alarm event
         for camera in self.camera_repository.find_all():
             if not camera.always_recording:
-                self.recording_service.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=False)))
+                self.recording_service.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=False)), auto_restart=False)
 
 
     def stop_alarm(self):

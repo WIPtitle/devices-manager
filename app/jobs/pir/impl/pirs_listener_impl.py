@@ -66,7 +66,7 @@ class PirsListenerImpl(PirsListener):
         if self.pir_infos.get(pir.gpio_pin_number) is None:
             raise PirsListenerException(f"Pir with pin {pir.gpio_pin_number} not being monitored")
         else:
-            return self.pir_infos.get(pir.gpio_pin_number)
+            return read_current_status(pir.gpio_pin_number)
 
 
     def monitor_pins(self):

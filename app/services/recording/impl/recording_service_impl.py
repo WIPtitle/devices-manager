@@ -29,7 +29,7 @@ class RecordingServiceImpl(RecordingService):
         return self.recording_repository.find_by_id(rec_id)
 
 
-    def create_and_start_recording(self, recording: Recording, auto_restart: bool = True) -> Recording:
+    def create_and_start_recording(self, recording: Recording, auto_restart: bool) -> Recording:
         camera = self.camera_repository.find_by_ip(recording.camera_ip) # will throw if not found
 
         if not self.recording_manager.is_recording(recording.camera_ip):
@@ -49,9 +49,11 @@ class RecordingServiceImpl(RecordingService):
 
     def restart(self, camera_ip: str):
         try:
+            print(f"Restarting recording for camera on {camera_ip}")
             self.stop_by_camera_ip(camera_ip)
             camera = self.camera_repository.find_by_ip(camera_ip)
-            self.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera_ip, always_recording=camera.always_recording)))
+            auto_restart = camera.always_recording
+            self.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera_ip, always_recording=camera.always_recording)), auto_restart=auto_restart)
         except Exception as e:
             pass
 
