@@ -79,6 +79,16 @@ class AlarmManagerImpl(AlarmManager):
     # OTHER ALARM FUNCTIONS
 
     def trigger_alarm(self, event: BaseEvent, group_id: int):
+        # Find listening group and set it to alarm
+        group = self.device_group_repository.find_device_group_by_id(group_id)
+
+        # should check if still listening, to avoid triggering alarm if user stopped listening after a device triggered it
+        if group.status != DeviceGroupStatus.LISTENING:
+            return
+
+        group.status = DeviceGroupStatus.ALARM
+        self.device_group_repository.update_device_group(group)
+
         while not self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))):
             time.sleep(1)
 
@@ -90,11 +100,6 @@ class AlarmManagerImpl(AlarmManager):
 
         while not self.rabbitmq_client.publish(event):
             time.sleep(1)
-
-        # Find listening group and set it to alarm
-        group = self.device_group_repository.find_device_group_by_id(group_id)
-        group.status = DeviceGroupStatus.ALARM
-        self.device_group_repository.update_device_group(group)
 
         # Start recording for cameras that are not always recording to save videos of alarm event
         for camera in self.camera_repository.find_all():
