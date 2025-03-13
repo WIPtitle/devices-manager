@@ -19,7 +19,6 @@ class RecordingThread(threading.Thread):
         self.file_path = os.path.join(recording.path, recording.name)
         self.running = None
 
-
     async def start_ffmpeg(self):
         try:
             ffmpeg = (
@@ -27,9 +26,29 @@ class RecordingThread(threading.Thread):
                 .option("y")
                 .input(
                     f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
-                    rtsp_transport="udp",
+                    rtsp_transport="tcp",  # Force TCP instead of UDP
+                    **{
+                        "stimeout": "3000000",  # 3-second stream timeout
+                        "use_wallclock_as_timestamps": "1",  # Critical fix for frozen frames
+                        "analyzeduration": "10M",  # Faster stream analysis
+                        "reconnect": "1",  # Auto-reconnect
+                    }
                 )
-                .output(self.file_path, vcodec="libx264", vf="fps=4", preset="fast", an=None, reset_timestamps=1, f="matroska", cluster_time_limit=5000)
+                .output(
+                    self.file_path,
+                    vcodec="libx264",
+                    vf="fps=4",
+                    preset="fast",
+                    an=None,
+                    reset_timestamps=1,
+                    f="matroska",
+                    cluster_time_limit=5000,
+                    **{
+                        "vsync": "0",  # Disable frame sync (prevents duplicate frames)
+                        "fflags": "+genpts",  # Regenerate presentation timestamps
+                        "copytb": "1",  # Preserve source timebase
+                    }
+                )
             )
 
             @ffmpeg.on("progress")
@@ -42,7 +61,6 @@ class RecordingThread(threading.Thread):
 
         except Exception as e:
             print("Error from FFmpeg:", e)
-            time.sleep(1)
             self.on_error_callback(self.recording)
 
 
