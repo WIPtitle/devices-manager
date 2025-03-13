@@ -26,12 +26,14 @@ class RecordingThread(threading.Thread):
                 .option("y")
                 .input(
                     f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}",
-                    rtsp_transport="tcp",  # Force TCP instead of UDP
+                    rtsp_transport="tcp",
                     **{
-                        "stimeout": "3000000",  # 3-second stream timeout
-                        "use_wallclock_as_timestamps": "1",  # Critical fix for frozen frames
-                        "analyzeduration": "10M",  # Faster stream analysis
-                        "reconnect": "1",  # Auto-reconnect
+                        "stimeout": "10000000",  # 10-second timeout (allows short outages)
+                        "use_wallclock_as_timestamps": "1",
+                        "reconnect": "1",  # Basic reconnection
+                        "reconnect_on_network_error": "1",  # Explicitly handle network issues
+                        "reconnect_at_eof": "1",  # Reconnect even if stream "ends"
+                        "reconnect_delay_max": "30",  # Max 30s between attempts
                     }
                 )
                 .output(
@@ -44,9 +46,9 @@ class RecordingThread(threading.Thread):
                     f="matroska",
                     cluster_time_limit=5000,
                     **{
-                        "vsync": "0",  # Disable frame sync (prevents duplicate frames)
-                        "fflags": "+genpts",  # Regenerate presentation timestamps
+                        "vsync": "0",  # Critical for frame duplication fix
                         "copytb": "1",  # Preserve source timebase
+                        "t": "120",  # Max 2-minute recording (even with reconnects)
                     }
                 )
             )
