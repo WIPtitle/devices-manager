@@ -78,7 +78,7 @@ class PirsListenerImpl(PirsListener):
                 current_status = read_current_status(pin)
 
                 # Trigger only if the current status matches the last one to avoid noise (at least 2 readings of same status to consider it as a change)
-                if current_status == self.last_status[pin]:
+                if pin in self.last_status and current_status == self.last_status[pin]:
                     if current_status != self.pir_infos.get(pin):
                         self.pir_infos[pin] = current_status
 
