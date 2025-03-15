@@ -1,5 +1,6 @@
 import glob
 import os
+from threading import Lock
 
 from app.jobs.recording.impl.recording_thread import RecordingThread
 from app.jobs.recording.recordings_manager import RecordingsManager
@@ -29,16 +30,20 @@ class RecordingsManagerImpl(RecordingsManager):
         self.camera_repository = camera_repository
         self.recording_repository = recording_repository
         self.threads = []
+        self.threads_lock = Lock()
 
 
     def is_recording(self, camera_ip: str):
-        for thread in self.threads:
-            if thread.recording.camera_ip == camera_ip:
-                return True
-        return False
+        with self.threads_lock:
+            self.threads = [t for t in self.threads if t.is_alive()]
+            return any(t.recording.camera_ip == camera_ip for t in self.threads)
 
 
     def start_recording(self, recording: Recording):
+        if self.is_recording(recording.camera_ip):
+            print(f"Already recording for {recording.camera_ip}, skipping.")
+            return
+
         camera = self.camera_repository.find_by_ip(recording.camera_ip)
 
         # Delete the oldest file if free space is less than 10%
@@ -51,18 +56,20 @@ class RecordingsManagerImpl(RecordingsManager):
                 recording = self.recording_repository.find_by_name(deleted_filename)
                 self.recording_repository.delete_by_id(recording.id)
 
-        thread = RecordingThread(camera, recording, self.thread_error_callback)
-        thread.start()
-        self.threads.append(thread)
-        print(f"Start recording for camera on {recording.camera_ip}")
+        with self.threads_lock:
+            thread = RecordingThread(camera, recording, self.thread_error_callback)
+            thread.start()
+            self.threads.append(thread)
+            print(f"Start recording for camera on {recording.camera_ip}")
 
 
     def stop_recording(self, recording: Recording):
-        for thread in self.threads:
-            if thread.recording.id == recording.id:
-                thread.stop()
-                self.threads.remove(thread)
-                break
+        with self.threads_lock:
+            for thread in self.threads:
+                if thread.recording.id == recording.id:
+                    thread.stop()
+                    self.threads.remove(thread)
+                    break
         print(f"Stopped recording for camera on {recording.camera_ip}")
 
 
@@ -81,6 +88,10 @@ class RecordingsManagerImpl(RecordingsManager):
         # no need to restart since restart operation is already scheduled for the camera ip, just
         # create a new recording and start it so if something fails we will have two separate files, who cares
         print(f"Error while recording for camera on {recording.camera_ip}, restarting...")
+
+        with self.threads_lock:
+            # Remove the failed thread
+            self.threads = [t for t in self.threads if t.recording.id != recording.id or t.is_alive()]
 
         camera = self.camera_repository.find_by_ip(recording.camera_ip)  # will throw if not found
         recording = self.recording_repository.create(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=camera.always_recording)))
