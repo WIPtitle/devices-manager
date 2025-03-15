@@ -31,6 +31,7 @@ class PirsListenerImpl(PirsListener):
         self.running = True
         self.thread = threading.Thread(target=self.monitor_pins)
         self.thread.start()
+        self.last_status: Dict[int, PirStatus] = {}
         GPIO.setmode(GPIO.BCM)
 
 
@@ -71,14 +72,19 @@ class PirsListenerImpl(PirsListener):
 
     def monitor_pins(self):
         while self.running:
-            time.sleep(0.5) # check every half second
+            time.sleep(0.5)
 
             for pin in self.pir_infos.keys():
                 current_status = read_current_status(pin)
-                if current_status != self.pir_infos.get(pin):
-                    self.pir_infos[pin] = current_status
 
-                    if self.pir_repository.find_by_gpio_pin_number(pin).listening:
-                        # Alarm manager should be interacted with only when alarm is on
-                        updated_pir = self.pir_repository.find_by_gpio_pin_number(pin)
-                        self.alarm_manager.on_pir_changed_status(updated_pir.gpio_pin_number, current_status)
+                # Trigger only if the current status matches the last one to avoid noise (at least 2 readings of same status to consider it as a change)
+                if current_status == self.last_status[pin]:
+                    if current_status != self.pir_infos.get(pin):
+                        self.pir_infos[pin] = current_status
+
+                        if self.pir_repository.find_by_gpio_pin_number(pin).listening:
+                            # Alarm manager should be interacted with only when alarm is on
+                            updated_pir = self.pir_repository.find_by_gpio_pin_number(pin)
+                            self.alarm_manager.on_pir_changed_status(updated_pir.gpio_pin_number, current_status)
+
+                self.last_status[pin] = current_status
