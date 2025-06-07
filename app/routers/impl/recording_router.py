@@ -1,8 +1,9 @@
 from typing import Sequence
-from fastapi import Request
+from fastapi import Request, Query
 
 from app.config.bindings import inject
 from app.exceptions.bad_request_exception import BadRequestException
+from app.models.enums.recording_type import RecordingType
 from app.models.recording import Recording
 from app.routers.router_wrapper import RouterWrapper
 from app.services.recording.recording_service import RecordingService
@@ -45,5 +46,8 @@ class RecordingRouter(RouterWrapper):
         # Other endpoints
         @self.router.get("/", operation_id="get_all_recordings_with_slash")
         @self.router.get("", operation_id="get_all_recordings_without_slash")
-        def get_all_recordings() -> Sequence[Recording]:
-            return self.recording_service.get_all()
+        def get_all_recordings(
+                offset: int = 0,
+                rec_type: RecordingType | None = Query(default=None, alias="type")
+        ) -> Sequence[Recording]:
+            return self.recording_service.get_all_paginated(offset=offset, recording_type=rec_type)

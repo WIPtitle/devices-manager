@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Sequence
 
+from app.models.enums.recording_type import RecordingType
 from app.models.recording import Recording
 
 
@@ -27,4 +28,8 @@ class RecordingRepository(ABC):
 
     @abstractmethod
     def find_all(self) -> Sequence[Recording]:
+        pass
+
+    @abstractmethod
+    def find_all_paginated(self, offset: int, recording_type: RecordingType) -> Sequence[Recording]:
         pass

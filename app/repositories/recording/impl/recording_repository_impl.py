@@ -5,6 +5,7 @@ from sqlmodel import select
 from app.database.database_connector import DatabaseConnector
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.not_found_exception import NotFoundException
+from app.models.enums.recording_type import RecordingType
 from app.models.recording import Recording
 from app.repositories.recording.recording_repository import RecordingRepository
 
@@ -73,6 +74,20 @@ class RecordingRepositoryImpl(RecordingRepository):
         session.commit()
         session.close()
         return recording_db
+
+
+    def find_all_paginated(self, offset: int, recording_type: RecordingType) -> Sequence[Recording]:
+        statement = (
+            select(Recording)
+            .order_by(Recording.id.desc())
+            .where(Recording.type == recording_type)
+            .offset(offset)
+            .limit(20)
+        )
+        session = self.database_connector.get_new_session()
+        result = session.exec(statement).all()
+        session.close()
+        return result
 
 
     def find_all(self) -> Sequence[Recording]:

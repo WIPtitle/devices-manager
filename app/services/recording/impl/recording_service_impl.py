@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 
 from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.recording.recordings_manager import RecordingsManager
+from app.models.enums.recording_type import RecordingType
 from app.models.recording import Recording, RecordingInputDto
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.recording.recording_repository import RecordingRepository
@@ -86,6 +87,10 @@ class RecordingServiceImpl(RecordingService):
 
     def get_all(self) -> Sequence[Recording]:
         return self.recording_repository.find_all()
+
+
+    def get_all_paginated(self, offset: int, recording_type: RecordingType) -> Sequence[Recording]:
+        return self.recording_repository.find_all_paginated(offset=offset, recording_type=recording_type)
 
 
     def stream(self, request: Request, rec_id: int):

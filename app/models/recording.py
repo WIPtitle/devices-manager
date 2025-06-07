@@ -2,6 +2,8 @@ import datetime
 
 from sqlmodel import SQLModel, Field
 
+from app.models.enums.recording_type import RecordingType
+
 
 # separation between normal recordings and alarm recordings
 def get_alarm_recordings_path():
@@ -23,6 +25,7 @@ class Recording(SQLModel, table=True):
     camera_ip: str
     name: str | None
     path: str | None
+    type: RecordingType | None
     is_completed: bool | None
 
 
@@ -33,12 +36,15 @@ class Recording(SQLModel, table=True):
 
         if dto.always_recording:
             path = get_recordings_path()
+            rec_type = RecordingType.NORMAL
         else:
             path = get_alarm_recordings_path()
+            rec_type = RecordingType.ALARM
 
         return cls(
             camera_ip=dto.camera_ip,
             name=file_name,
             path=path,
+            type=rec_type,
             is_completed=False
         )
