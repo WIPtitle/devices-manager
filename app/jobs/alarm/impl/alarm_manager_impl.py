@@ -1,4 +1,6 @@
 import time
+from collections import deque
+from threading import Lock
 
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.event.base_event import BaseEvent
@@ -41,6 +43,46 @@ class AlarmManagerImpl(AlarmManager):
         self.pir_repository = pir_repository
         self.alarm = False
 
+        # PIR filtering attributes
+        self.movement_timestamps = deque()
+        self.movement_lock = Lock()
+        self.window_duration = 5.0
+        self.min_movements = 3
+
+    def _clean_old_movements(self, current_time: float):
+        """Remove movement timestamps older than the window duration"""
+        cutoff_time = current_time - self.window_duration
+        while self.movement_timestamps and self.movement_timestamps[0] < cutoff_time:
+            self.movement_timestamps.popleft()
+
+    def _is_there_enough_movement_in_window(self, current_time: float) -> bool:
+        """Check if we have enough movements in the time window to trigger alarm"""
+        with self.movement_lock:
+            self._clean_old_movements(current_time)
+            return len(self.movement_timestamps) >= self.min_movements
+
+    def on_pir_changed_status(self, pir_pin: int, status: PirStatus):
+        pir = self.pir_repository.find_by_gpio_pin_number(pir_pin)
+        group = self.device_group_repository.find_listening_device_group()
+        current_time = time.time()
+
+        # Only process MOVEMENT status for filtering
+        if status == PirStatus.MOVEMENT:
+            with self.movement_lock:
+                # Add current movement timestamp
+                self.movement_timestamps.append(current_time)
+                self._clean_old_movements(current_time)
+
+                # Check if we should trigger the alarm
+                if not self.alarm and self._is_there_enough_movement_in_window(current_time):
+                    self.alarm = True
+                    while not self.rabbitmq_client.publish(AlarmWaiting(True, int(current_time))):
+                        time.sleep(1)
+                    delay_execution(
+                        func=self.trigger_alarm,
+                        args=(PirAlarm(pir.name, int(current_time)), group.id),
+                        delay_seconds=group.wait_to_fire_alarm)
+
 
     def on_reed_changed_status(self, reed_pin: int, status: ReedStatus):
         reed = self.reed_repository.find_by_gpio_pin_number(reed_pin)
@@ -50,29 +92,12 @@ class AlarmManagerImpl(AlarmManager):
         # unless reed is closed after. If closed, nothing really happens, but if opened again another changed status
         # event will be triggered and this time it will start the alarm.
         if status == ReedStatus.OPEN and not self.alarm:
-            print(f"Changed status reed: {status}, starting alarm")
             self.alarm = True
             while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
                 time.sleep(1)
             delay_execution(
                 func=self.trigger_alarm,
                 args=(ReedAlarm(reed.name, int(time.time())), group.id),
-                delay_seconds=group.wait_to_fire_alarm)
-
-
-    def on_pir_changed_status(self, pir_pin: int, status: PirStatus):
-        pir = self.pir_repository.find_by_gpio_pin_number(pir_pin)
-        group = self.device_group_repository.find_listening_device_group()
-        print("PIR status changed, deciding if alarm should be triggered...")
-        if status == PirStatus.MOVEMENT and not self.alarm:
-            print(f"Triggering alarm")
-
-            self.alarm = True
-            while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
-                time.sleep(1)
-            delay_execution(
-                func=self.trigger_alarm,
-                args=(PirAlarm(pir.name, int(time.time())), group.id),
                 delay_seconds=group.wait_to_fire_alarm)
 
 
