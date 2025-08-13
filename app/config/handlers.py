@@ -7,8 +7,7 @@ from app.exceptions.conflict_request_exception import ConflictException
 from app.exceptions.internal_error_exception import InternalErrorException
 from app.exceptions.not_found_exception import NotFoundException
 from app.exceptions.not_implemented_exception import NotImplementedException
-from app.exceptions.pirs_listener_exception import PirsListenerException
-from app.exceptions.reeds_listener_exception import ReedsListenerException
+from app.exceptions.sensors_listener_exception import SensorsListenerException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
 from app.exceptions.validation_exception import ValidationException
 
@@ -43,13 +42,7 @@ async def validation_exception_handler(request: Request, exc: ValidationExceptio
         content={"message": exc.message},
     )
 
-async def reeds_listener_exception_handler(request: Request, exc: ReedsListenerException):
-    return JSONResponse(
-        status_code=500,
-        content={"message": exc.message},
-    )
-
-async def pirs_listener_exception_handler(request: Request, exc: PirsListenerException):
+async def sensors_listener_exception_handler(request: Request, exc: SensorsListenerException):
     return JSONResponse(
         status_code=500,
         content={"message": exc.message},
@@ -73,11 +66,7 @@ async def authentication_exception_handler(request: Request, exc: Authentication
         content={"message": exc.message},
     )
 
-# This returns tuples of handler function name and exception type that it handles given all the functions in this file
-# except obviously this one.
-# Yeah, reflection bad, yadda yadda... but this only perform reflection on itself so there is no risk of other code
-# breaking, and it is always implementable with a manual return of the list of tuples; I just find this easier than
-# writing manually a potentially very long list and having to modify it every time I add a handler.
+# This returns tuples of handler function name and exception type that it handles
 def get_exception_handlers():
     import inspect
     current_module = inspect.getmodule(inspect.currentframe())

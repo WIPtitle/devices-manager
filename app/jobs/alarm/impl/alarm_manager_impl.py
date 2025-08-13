@@ -5,109 +5,78 @@ from threading import Lock
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.event.base_event import BaseEvent
 from rabbitmq_sdk.event.impl.devices_manager.alarm_stopped import AlarmStopped
+from rabbitmq_sdk.event.impl.devices_manager.sensor_alarm import SensorAlarm
 from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
-from rabbitmq_sdk.event.impl.devices_manager.reed_alarm import ReedAlarm
-from rabbitmq_sdk.event.impl.devices_manager.pir_alarm import PirAlarm
 
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.models.enums.device_group_status import DeviceGroupStatus
-from app.models.enums.pir_status import PirStatus
-from app.models.enums.reed_status import ReedStatus
 from app.models.recording import Recording, RecordingInputDto
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
-from app.repositories.pir.pir_repository import PirRepository
-from app.repositories.reed.reed_repository import ReedRepository
+from app.repositories.sensor.sensor_repository import SensorRepository
 from app.services.recording.recording_service import RecordingService
 from app.utils.delayed_execution import delay_execution
 
 
-# The logic here is that the devices' listeners perform a callback here every time the status changes and only if
-# the device is actively listening to events (devices always listen to events but only perform callbacks if user
-# started the alarm for those devices).
-# Here I can emit events for other services (essentially, starting alarm only the first time an event that should start
-# it happens, and shutting it down when user shuts it down).
 class AlarmManagerImpl(AlarmManager):
     def __init__(self,
                  rabbitmq_client: RabbitMQClient,
                  recording_service: RecordingService,
                  device_group_repository: DeviceGroupRepository,
                  camera_repository: CameraRepository,
-                 reed_repository: ReedRepository,
-                 pir_repository: PirRepository):
+                 sensor_repository: SensorRepository):
         self.rabbitmq_client = rabbitmq_client
         self.recording_service = recording_service
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
-        self.reed_repository = reed_repository
-        self.pir_repository = pir_repository
+        self.sensor_repository = sensor_repository
         self.alarm = False
 
-        # PIR filtering attributes
-        self.movement_timestamps = deque()
-        self.movement_lock = Lock()
+        # Trigger filtering attributes
+        self.trigger_timestamps = deque()
+        self.trigger_lock = Lock()
         self.window_duration = 5.0
-        self.min_movements = 3
+        self.min_triggers = 3
 
-    def _clean_old_movements(self, current_time: float):
-        """Remove movement timestamps older than the window duration"""
+    def _clean_old_triggers(self, current_time: float):
+        """Remove trigger timestamps older than the window duration"""
         cutoff_time = current_time - self.window_duration
-        while self.movement_timestamps and self.movement_timestamps[0] < cutoff_time:
-            self.movement_timestamps.popleft()
+        while self.trigger_timestamps and self.trigger_timestamps[0] < cutoff_time:
+            self.trigger_timestamps.popleft()
 
-    def _is_there_enough_movement_in_window(self, current_time: float) -> bool:
-        """Check if we have enough movements in the time window to trigger alarm"""
-        with self.movement_lock:
-            self._clean_old_movements(current_time)
-            return len(self.movement_timestamps) >= self.min_movements
+    def _is_there_enough_triggers_in_window(self, current_time: float) -> bool:
+        """Check if we have enough triggers in the time window to trigger alarm"""
+        with self.trigger_lock:
+            self._clean_old_triggers(current_time)
+            return len(self.trigger_timestamps) >= self.min_triggers
 
-    def on_pir_changed_status(self, pir_pin: int, status: PirStatus):
-        pir = self.pir_repository.find_by_gpio_pin_number(pir_pin)
+    def on_sensor_triggered(self, sensor_pin: int):
+        """Called when any sensor is triggered (goes HIGH)"""
+        sensor = self.sensor_repository.find_by_gpio_pin_number(sensor_pin)
         group = self.device_group_repository.find_listening_device_group()
         current_time = time.time()
 
-        # Only process MOVEMENT status for filtering
-        if status == PirStatus.MOVEMENT:
-            with self.movement_lock:
-                # Add current movement timestamp
-                self.movement_timestamps.append(current_time)
-                self._clean_old_movements(current_time)
+        with self.trigger_lock:
+            # Add current trigger timestamp
+            self.trigger_timestamps.append(current_time)
+            self._clean_old_triggers(current_time)
 
-                # Check if we should trigger the alarm
-                if not self.alarm and self._is_there_enough_movement_in_window(current_time):
-                    self.alarm = True
-                    while not self.rabbitmq_client.publish(AlarmWaiting(True, int(current_time))):
-                        time.sleep(1)
-                    delay_execution(
-                        func=self.trigger_alarm,
-                        args=(PirAlarm(pir.name, int(current_time)), group.id),
-                        delay_seconds=group.wait_to_fire_alarm)
-
-
-    def on_reed_changed_status(self, reed_pin: int, status: ReedStatus):
-        reed = self.reed_repository.find_by_gpio_pin_number(reed_pin)
-        group = self.device_group_repository.find_listening_device_group()
-
-        # This filters the case where a reed is open on alarm start, because a changed status event will not be triggered
-        # unless reed is closed after. If closed, nothing really happens, but if opened again another changed status
-        # event will be triggered and this time it will start the alarm.
-        if status == ReedStatus.OPEN and not self.alarm:
-            self.alarm = True
-            while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
-                time.sleep(1)
-            delay_execution(
-                func=self.trigger_alarm,
-                args=(ReedAlarm(reed.name, int(time.time())), group.id),
-                delay_seconds=group.wait_to_fire_alarm)
-
-
-    # OTHER ALARM FUNCTIONS
+            # Check if we should trigger the alarm
+            if not self.alarm and self._is_there_enough_triggers_in_window(current_time):
+                self.alarm = True
+                while not self.rabbitmq_client.publish(AlarmWaiting(True, int(current_time))):
+                    time.sleep(1)
+                delay_execution(
+                    func=self.trigger_alarm,
+                    args=(SensorAlarm(sensor.name, int(current_time)), group.id),
+                    delay_seconds=group.wait_to_fire_alarm)
 
     def trigger_alarm(self, event: BaseEvent, group_id: int):
+        """Trigger the alarm after the delay"""
         # Find listening group and set it to alarm
         group = self.device_group_repository.find_device_group_by_id(group_id)
 
-        # should check if still listening, to avoid triggering alarm if user stopped listening after a device triggered it
+        # Check if still listening
         if group.status != DeviceGroupStatus.LISTENING:
             return
 
@@ -117,8 +86,7 @@ class AlarmManagerImpl(AlarmManager):
         while not self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))):
             time.sleep(1)
 
-        # After two minutes, stop audio and recordings. This does NOT stop devices from listening so alarm could be triggered
-        # again. Only user can stop devices from listening.
+        # After two minutes, stop audio and recordings
         delay_execution(
             func=self.stop_alarm,
             delay_seconds=120)
@@ -126,14 +94,15 @@ class AlarmManagerImpl(AlarmManager):
         while not self.rabbitmq_client.publish(event):
             time.sleep(1)
 
-        # Start recording for cameras that are not always recording to save videos of alarm event
+        # Start recording for cameras that are not always recording
         for camera in self.camera_repository.find_all():
             if not camera.always_recording:
-                self.recording_service.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=False)), auto_restart=False)
-
+                self.recording_service.create_and_start_recording(
+                    Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=False)),
+                    auto_restart=False)
 
     def stop_alarm(self):
-        # Since this gets also called on stop listening, if alarm is not triggered there is no need to stop it
+        """Stop the alarm"""
         if self.alarm:
             while not self.rabbitmq_client.publish(AlarmStopped(int(time.time()))):
                 time.sleep(1)

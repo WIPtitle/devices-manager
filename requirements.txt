@@ -6,6 +6,5 @@ fastapi==0.112.2
 uvicorn==0.30.6
 psycopg2==2.9.9
 sqlmodel==0.0.22
-RPi.GPIO==0.7.1
 httpx==0.26.0
 requests==2.31.0

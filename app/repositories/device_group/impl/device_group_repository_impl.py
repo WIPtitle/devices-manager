@@ -1,19 +1,16 @@
 from typing import Sequence
-
 from sqlmodel import select
 
 from app.exceptions.not_found_exception import NotFoundException
 from app.models.device_group import DeviceGroup
 from app.models.enums.device_group_status import DeviceGroupStatus
-from app.models.pir import Pir
-from app.models.reed import Reed
+from app.models.sensor import Sensor
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 
 
 class DeviceGroupRepositoryImpl(DeviceGroupRepository):
     def __init__(self, database_connector):
         self.database_connector = database_connector
-
 
     def create_device_group(self, device_group: DeviceGroup):
         session = self.database_connector.get_new_session()
@@ -22,7 +19,6 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         session.refresh(device_group)
         session.close()
         return device_group
-
 
     def update_device_group(self, group: DeviceGroup):
         statement = select(DeviceGroup).where(DeviceGroup.id == group.id)
@@ -41,7 +37,6 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         session.close()
         return device_group
 
-
     def delete_device_group(self, group_id: int):
         statement = select(DeviceGroup).where(DeviceGroup.id == group_id)
         session = self.database_connector.get_new_session()
@@ -54,7 +49,6 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         session.close()
         return device_group
 
-
     def find_device_group_by_id(self, device_group_id: int) -> DeviceGroup:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         session = self.database_connector.get_new_session()
@@ -64,66 +58,33 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
             raise NotFoundException("Device group was not found")
         return device_group
 
-
-    def find_device_group_reeds_by_id(self, device_group_id: int) -> Sequence[Reed]:
+    def find_device_group_sensors_by_id(self, device_group_id: int) -> Sequence[Sensor]:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         session = self.database_connector.get_new_session()
         device_group = session.exec(statement).first()
-        reeds = device_group.reeds
-        session.close()
         if device_group is None:
             raise NotFoundException("Device group was not found")
-        return reeds
+        sensors = device_group.sensors
+        session.close()
+        return sensors
 
-
-    def update_device_group_reeds_by_id(self, device_group_id: int, reed_pins: Sequence[int]) -> Sequence[Reed]:
+    def update_device_group_sensors_by_id(self, device_group_id: int, sensor_pins: Sequence[int]) -> Sequence[Sensor]:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         session = self.database_connector.get_new_session()
         device_group = session.exec(statement).unique().first()
         if device_group is None:
             raise NotFoundException("Device group was not found")
 
-        statement = select(Reed).where(Reed.gpio_pin_number.in_(reed_pins))
-        new_reeds = session.exec(statement).unique().all()
+        statement = select(Sensor).where(Sensor.gpio_pin_number.in_(sensor_pins))
+        new_sensors = session.exec(statement).unique().all()
 
-        device_group.reeds = new_reeds
-
-        session.commit()
-        session.refresh(device_group)
-        reeds = device_group.reeds
-        session.close()
-        return reeds
-
-
-    def find_device_group_pirs_by_id(self, device_group_id: int) -> Sequence[Pir]:
-        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
-        session = self.database_connector.get_new_session()
-        device_group = session.exec(statement).first()
-        pirs = device_group.pirs
-        session.close()
-        if device_group is None:
-            raise NotFoundException("Device group was not found")
-        return pirs
-
-
-    def update_device_group_pirs_by_id(self, device_group_id: int, pir_pins: Sequence[int]) -> Sequence[Pir]:
-        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
-        session = self.database_connector.get_new_session()
-        device_group = session.exec(statement).unique().first()
-        if device_group is None:
-            raise NotFoundException("Device group was not found")
-
-        statement = select(Pir).where(Pir.gpio_pin_number.in_(pir_pins))
-        new_pirs = session.exec(statement).unique().all()
-
-        device_group.pirs = new_pirs
+        device_group.sensors = new_sensors
 
         session.commit()
         session.refresh(device_group)
-        pirs = device_group.pirs
+        sensors = device_group.sensors
         session.close()
-        return pirs
-
+        return sensors
 
     def find_all_devices_groups(self) -> Sequence[DeviceGroup]:
         statement = select(DeviceGroup)
@@ -132,9 +93,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         session.close()
         return device_groups
 
-
     def find_listening_device_group(self) -> DeviceGroup:
-        # Only a single group can be listening at a time, so return the first found or throw
         statement = select(DeviceGroup).where(DeviceGroup.status == DeviceGroupStatus.LISTENING)
         session = self.database_connector.get_new_session()
         device_group = session.exec(statement).unique().first()
@@ -142,7 +101,6 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         if device_group is None:
             raise NotFoundException("Active device group was not found")
         return device_group
-
 
     def are_all_groups_idle(self) -> bool:
         statement = select(DeviceGroup).where(DeviceGroup.status != DeviceGroupStatus.IDLE)
