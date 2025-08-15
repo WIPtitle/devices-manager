@@ -28,3 +28,8 @@ class SensorService(ABC):
     def get_status_by_pin(self, gpio_pin_number: int) -> int:
         """Get sensor status: 0=LOW, 1=HIGH"""
         pass
+
+    @abstractmethod
+    async def get_sensor_status_stream_by_pin(self, gpio_pin_number: int):
+        """Stream sensor status updates"""
+        pass

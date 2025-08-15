@@ -1,3 +1,4 @@
+import asyncio
 from typing import Sequence
 
 from app.exceptions.bad_request_exception import BadRequestException
@@ -58,3 +59,12 @@ class SensorServiceImpl(SensorService):
     def get_status_by_pin(self, gpio_pin_number: int) -> int:
         sensor = self.sensor_repository.find_by_gpio_pin_number(gpio_pin_number)
         return self.sensors_listener.get_status_by_sensor(sensor)
+
+    async def get_sensor_status_stream_by_pin(self, gpio_pin_number: int):
+        """Stream sensor status updates"""
+        while True:
+            await asyncio.sleep(1)
+            sensor = self.sensor_repository.find_by_gpio_pin_number(gpio_pin_number)
+            status = self.sensors_listener.get_status_by_sensor(sensor)
+            status_text = "HIGH" if status == 1 else "LOW"
+            yield f"data: {status_text}\n\n"

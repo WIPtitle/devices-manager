@@ -1,4 +1,5 @@
 from typing import Sequence
+from fastapi.responses import StreamingResponse
 
 from app.config.bindings import inject
 from app.models.sensor import Sensor, SensorInputDto
@@ -40,3 +41,8 @@ class SensorRouter(RouterWrapper):
         def get_sensor_status_by_gpio_pin_number(gpio_pin_number: int) -> dict:
             status = self.sensor_service.get_status_by_pin(gpio_pin_number)
             return {"status": "HIGH" if status == 1 else "LOW"}
+
+        @self.router.get("/{gpio_pin_number}/status/stream")
+        def get_sensor_status_stream(gpio_pin_number: int) -> StreamingResponse:
+            return StreamingResponse(self.sensor_service.get_sensor_status_stream_by_pin(gpio_pin_number),
+                                     media_type="text/event-stream")
