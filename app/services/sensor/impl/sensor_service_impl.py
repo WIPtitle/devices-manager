@@ -7,6 +7,7 @@ from app.jobs.sensor.sensors_listener import SensorsListener
 from app.models.sensor import Sensor
 from app.repositories.sensor.sensor_repository import SensorRepository
 from app.services.sensor.sensor_service import SensorService
+from app.utils.event_manager import event_manager
 
 
 class SensorServiceImpl(SensorService):
@@ -61,10 +62,27 @@ class SensorServiceImpl(SensorService):
         return self.sensors_listener.get_status_by_sensor(sensor)
 
     async def get_sensor_status_stream_by_pin(self, gpio_pin_number: int):
-        """Stream sensor status updates"""
-        while True:
-            await asyncio.sleep(1)
-            sensor = self.sensor_repository.find_by_gpio_pin_number(gpio_pin_number)
-            status = self.sensors_listener.get_status_by_sensor(sensor)
-            status_text = "HIGH" if status == 1 else "LOW"
-            yield f"data: {status_text}\n\n"
+        """Stream sensor status updates using events instead of polling"""
+        # First, send the current status
+        sensor = self.sensor_repository.find_by_gpio_pin_number(gpio_pin_number)
+        current_status = self.sensors_listener.get_status_by_sensor(sensor)
+        status_text = "HIGH" if current_status == 1 else "LOW"
+        yield f"data: {status_text}\n\n"
+
+        # Subscribe to events for this sensor
+        queue = await event_manager.subscribe_to_sensor(gpio_pin_number)
+
+        try:
+            while True:
+                try:
+                    # Wait for events with a timeout to handle client disconnections
+                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    status_text = "HIGH" if event.data == 1 else "LOW"
+                    yield f"data: {status_text}\n\n"
+                except asyncio.TimeoutError:
+                    # Send a keep-alive comment to prevent connection timeout
+                    yield f": keep-alive\n\n"
+        finally:
+            # Clean up subscription when client disconnects
+            await event_manager.unsubscribe_sensor(gpio_pin_number, queue)
+            print(f"Client disconnected from sensor {gpio_pin_number} stream")

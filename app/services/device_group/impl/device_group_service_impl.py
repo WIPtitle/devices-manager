@@ -15,6 +15,7 @@ from app.repositories.device_group.device_group_repository import DeviceGroupRep
 from app.repositories.sensor.sensor_repository import SensorRepository
 from app.services.device_group.device_group_service import DeviceGroupService
 from app.utils.delayed_execution import delay_execution
+from app.utils.event_manager import event_manager
 
 
 class DeviceGroupServiceImpl(DeviceGroupService):
@@ -30,8 +31,15 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         self.alarm_manager = alarm_manager
         self.rabbitmq_client = rabbitmq_client
 
+        # Publish initial state for all existing groups
+        for group in self.device_group_repository.find_all_devices_groups():
+            event_manager.publish_device_group_event_sync(group.id, group.status.value)
+
     def create_device_group(self, device_group: DeviceGroup) -> DeviceGroup:
-        return self.device_group_repository.create_device_group(device_group)
+        group = self.device_group_repository.create_device_group(device_group)
+        # Publish initial state for new group
+        event_manager.publish_device_group_event_sync(group.id, group.status.value)
+        return group
 
     def delete_device_group(self, group_id: int):
         if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
@@ -46,15 +54,36 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Can't update while not idle")
 
-        return self.device_group_repository.update_device_group(group)
+        updated_group = self.device_group_repository.update_device_group(group)
+        # Publish status change event if status changed
+        event_manager.publish_device_group_event_sync(group_id, updated_group.status.value)
+        return updated_group
 
     def get_device_group_by_id(self, group_id: int) -> DeviceGroup:
         return self.device_group_repository.find_device_group_by_id(group_id)
 
     async def get_device_group_status_stream_by_id(self, group_id: int):
-        while True:
-            await asyncio.sleep(1)
-            yield f"data: {self.device_group_repository.find_device_group_by_id(group_id).status}\n\n"
+        """Stream device group status updates using events instead of polling"""
+        # First, send the current status
+        current_group = self.device_group_repository.find_device_group_by_id(group_id)
+        yield f"data: {current_group.status.value}\n\n"
+
+        # Subscribe to events for this device group
+        queue = await event_manager.subscribe_to_device_group(group_id)
+
+        try:
+            while True:
+                try:
+                    # Wait for events with a timeout to handle client disconnections
+                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"data: {event.data}\n\n"
+                except asyncio.TimeoutError:
+                    # Send a keep-alive comment to prevent connection timeout
+                    yield f": keep-alive\n\n"
+        finally:
+            # Clean up subscription when client disconnects
+            await event_manager.unsubscribe_device_group(group_id, queue)
+            print(f"Client disconnected from device group {group_id} stream")
 
     def get_device_group_sensors_by_id(self, group_id: int) -> Sequence[Sensor]:
         return self.device_group_repository.find_device_group_sensors_by_id(group_id)
@@ -81,9 +110,12 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         delay_execution(func=self.do_start_listening, args=(group_id,), delay_seconds=group.wait_to_start_alarm)
 
         group.status = DeviceGroupStatus.WAITING_TO_START_LISTENING
-        self.device_group_repository.update_device_group(group)
+        updated_group = self.device_group_repository.update_device_group(group)
 
-        return self.get_device_group_by_id(group_id)
+        # Publish status change event
+        event_manager.publish_device_group_event_sync(group_id, DeviceGroupStatus.WAITING_TO_START_LISTENING.value)
+
+        return updated_group
 
     def stop_listening(self, group_id: int) -> DeviceGroup:
         group = self.get_device_group_by_id(group_id)
@@ -96,6 +128,9 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.LISTENING
         self.device_group_repository.update_device_group(group)
+
+        # Publish status change event
+        event_manager.publish_device_group_event_sync(group_id, DeviceGroupStatus.LISTENING.value)
 
         sensors = self.get_device_group_sensors_by_id(group_id)
         for sensor in sensors:
@@ -114,3 +149,6 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.IDLE
         self.device_group_repository.update_device_group(group)
+
+        # Publish status change event
+        event_manager.publish_device_group_event_sync(group_id, DeviceGroupStatus.IDLE.value)

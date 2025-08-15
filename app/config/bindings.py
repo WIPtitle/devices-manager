@@ -34,6 +34,7 @@ from app.services.recording.recording_service import RecordingService
 from app.services.sensor.impl.sensor_service_impl import SensorServiceImpl
 from app.services.sensor.sensor_service import SensorService
 from app.utils.read_credentials import read_credentials
+from app.utils.event_manager import event_manager, EventManager
 
 bindings = {}
 
@@ -50,6 +51,9 @@ rabbitmq_client = RabbitMQClientImpl.from_config(
 
 # GPIO Monitor Client
 gpio_monitor_client = GpioMonitorClient()
+
+# Event Manager (singleton)
+bindings[EventManager] = event_manager
 
 # Repositories
 camera_repository = CameraRepositoryImpl(database_connector=database_connector)

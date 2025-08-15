@@ -14,6 +14,7 @@ from app.repositories.device_group.device_group_repository import DeviceGroupRep
 from app.repositories.sensor.sensor_repository import SensorRepository
 from app.services.recording.recording_service import RecordingService
 from app.utils.delayed_execution import delay_execution
+from app.utils.event_manager import event_manager
 
 
 class AlarmManagerImpl(AlarmManager):
@@ -57,6 +58,9 @@ class AlarmManagerImpl(AlarmManager):
 
         group.status = DeviceGroupStatus.ALARM
         self.device_group_repository.update_device_group(group)
+
+        # Publish status change event
+        event_manager.publish_device_group_event_sync(group_id, DeviceGroupStatus.ALARM.value)
 
         while not self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))):
             time.sleep(1)
