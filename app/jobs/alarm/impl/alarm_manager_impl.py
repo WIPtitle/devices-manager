@@ -1,6 +1,4 @@
 import time
-from collections import deque
-from threading import Lock
 
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.event.base_event import BaseEvent
@@ -32,44 +30,21 @@ class AlarmManagerImpl(AlarmManager):
         self.sensor_repository = sensor_repository
         self.alarm = False
 
-        # Trigger filtering attributes
-        self.trigger_timestamps = deque()
-        self.trigger_lock = Lock()
-        self.window_duration = 5.0
-        self.min_triggers = 3
-
-    def _clean_old_triggers(self, current_time: float):
-        """Remove trigger timestamps older than the window duration"""
-        cutoff_time = current_time - self.window_duration
-        while self.trigger_timestamps and self.trigger_timestamps[0] < cutoff_time:
-            self.trigger_timestamps.popleft()
-
-    def _is_there_enough_triggers_in_window(self, current_time: float) -> bool:
-        """Check if we have enough triggers in the time window to trigger alarm"""
-        with self.trigger_lock:
-            self._clean_old_triggers(current_time)
-            return len(self.trigger_timestamps) >= self.min_triggers
-
     def on_sensor_triggered(self, sensor_pin: int):
         """Called when any sensor is triggered (goes HIGH)"""
         sensor = self.sensor_repository.find_by_gpio_pin_number(sensor_pin)
         group = self.device_group_repository.find_listening_device_group()
         current_time = time.time()
 
-        with self.trigger_lock:
-            # Add current trigger timestamp
-            self.trigger_timestamps.append(current_time)
-            self._clean_old_triggers(current_time)
-
-            # Check if we should trigger the alarm
-            if not self.alarm and self._is_there_enough_triggers_in_window(current_time):
-                self.alarm = True
-                while not self.rabbitmq_client.publish(AlarmWaiting(True, int(current_time))):
-                    time.sleep(1)
-                delay_execution(
-                    func=self.trigger_alarm,
-                    args=(SensorAlarm(sensor.name, int(current_time)), group.id),
-                    delay_seconds=group.wait_to_fire_alarm)
+        # If not already in alarm and sensor goes HIGH, trigger alarm immediately
+        if not self.alarm and group and group.status == DeviceGroupStatus.LISTENING:
+            self.alarm = True
+            while not self.rabbitmq_client.publish(AlarmWaiting(True, int(current_time))):
+                time.sleep(1)
+            delay_execution(
+                func=self.trigger_alarm,
+                args=(SensorAlarm(sensor.name, int(current_time)), group.id),
+                delay_seconds=group.wait_to_fire_alarm)
 
     def trigger_alarm(self, event: BaseEvent, group_id: int):
         """Trigger the alarm after the delay"""

@@ -1,7 +1,7 @@
 import os
 from typing import BinaryIO, Sequence
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 from fastapi.responses import StreamingResponse, FileResponse
 
 from app.exceptions.bad_request_exception import BadRequestException

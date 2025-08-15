@@ -2,6 +2,7 @@ import os
 from functools import wraps
 from typing import Callable, get_type_hints
 
+from app.repositories.sensor.impl.sensor_repository_impl import SensorRepositoryImpl
 from rabbitmq_sdk.client.impl.rabbitmq_client_impl import RabbitMQClientImpl
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
 from rabbitmq_sdk.enums.service import Service
@@ -11,29 +12,27 @@ from app.clients.gpio_monitor_client import GpioMonitorClient
 from app.database.database_connector import DatabaseConnector
 from app.database.impl.database_connector_impl import DatabaseConnectorImpl
 from app.exceptions.not_implemented_exception import NotImplementedException
-from app.exceptions.sensors_listener_exception import SensorsListenerException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.alarm.impl.alarm_manager_impl import AlarmManagerImpl
-from app.jobs.sensor.impl.sensors_listener_impl import SensorsListenerImpl
-from app.jobs.sensor.sensors_listener import SensorsListener
 from app.jobs.recording.impl.recordings_manager_impl import RecordingsManagerImpl
 from app.jobs.recording.recordings_manager import RecordingsManager
+from app.jobs.sensor.impl.sensors_listener_impl import SensorsListenerImpl
+from app.jobs.sensor.sensors_listener import SensorsListener
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.camera.impl.camera_repository_impl import CameraRepositoryImpl
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.device_group.impl.device_group_repository_impl import DeviceGroupRepositoryImpl
-from app.repositories.sensor.impl.sensor_repository_impl import SensorRepositoryImpl
-from app.repositories.sensor.sensor_repository import SensorRepository
 from app.repositories.recording.impl.recording_repository_impl import RecordingRepositoryImpl
 from app.repositories.recording.recording_repository import RecordingRepository
+from app.repositories.sensor.sensor_repository import SensorRepository
 from app.services.camera.camera_service import CameraService
 from app.services.camera.impl.camera_service_impl import CameraServiceImpl
 from app.services.device_group.device_group_service import DeviceGroupService
 from app.services.device_group.impl.device_group_service_impl import DeviceGroupServiceImpl
-from app.services.sensor.impl.sensor_service_impl import SensorServiceImpl
-from app.services.sensor.sensor_service import SensorService
 from app.services.recording.impl.recording_service_impl import RecordingServiceImpl
 from app.services.recording.recording_service import RecordingService
+from app.services.sensor.impl.sensor_service_impl import SensorServiceImpl
+from app.services.sensor.sensor_service import SensorService
 from app.utils.read_credentials import read_credentials
 
 bindings = {}
