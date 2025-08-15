@@ -22,9 +22,13 @@ class SensorsListenerImpl(SensorsListener):
         # Start the GPIO monitor client
         self.gpio_monitor_client.start()
 
-        # Register callbacks for all existing sensors
+        # Register callbacks for all existing sensors and initialize their states
         for sensor in self.sensor_repository.find_all():
-            self._register_sensor_callback(sensor)
+            try:
+                self._register_sensor_callback(sensor)
+                self.sensor_states[sensor.gpio_pin_number] = self.gpio_monitor_client.get_pin_state(sensor.gpio_pin_number)
+            except Exception as e:
+                logger.error(f"Failed to initialize sensor on pin {sensor.gpio_pin_number}: {e}")
 
     def stop(self):
         """Stop the listener and cleanup"""
@@ -66,11 +70,14 @@ class SensorsListenerImpl(SensorsListener):
             del self.sensor_states[sensor.gpio_pin_number]
 
     def get_status_by_sensor(self, sensor: Sensor) -> int:
-        """Get current status of a sensor (0=LOW, 1=HIGH)"""
+        """Get current status of a sensor (0=LOW, 1=HIGH), cached if available"""
+        if sensor.gpio_pin_number in self.sensor_states:
+            return self.sensor_states[sensor.gpio_pin_number]
+
         try:
-            # Always fetch fresh state from GPIO Monitor
             state = self.gpio_monitor_client.get_pin_state(sensor.gpio_pin_number)
             self.sensor_states[sensor.gpio_pin_number] = state
+            logger.warning(f"State for pin {sensor.gpio_pin_number} was not cached, fetched: {state}")
             return state
         except Exception as e:
             logger.error(f"Failed to get status for sensor on pin {sensor.gpio_pin_number}: {e}")
