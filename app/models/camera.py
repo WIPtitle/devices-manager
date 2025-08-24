@@ -1,4 +1,5 @@
-import cv2
+import subprocess
+
 from sqlmodel import SQLModel, Field
 
 
@@ -21,6 +22,7 @@ class Camera(SQLModel, table=True):
     name: str
     always_recording: bool
 
+
     @classmethod
     def from_dto(cls, dto: CameraInputDto):
         return cls(
@@ -35,14 +37,16 @@ class Camera(SQLModel, table=True):
 
     def is_reachable(self):
         try:
-            url = f"rtsp://{self.username}:{self.password}@{self.ip}:{self.port}/{self.path}"
-            cap = cv2.VideoCapture(url)
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-            if cap.isOpened():
-                ret, _ = cap.read()
-                cap.release()
-                return ret
+            command = [
+                "ffmpeg",
+                "-i", f"rtsp://{self.username}:{self.password}@{self.ip}:{self.port}/{self.path}",
+                "-t", "1",
+                "-f", "null",
+                "-"
+            ]
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if result.returncode == 0:
+                return True
             else:
                 return False
         except Exception:
