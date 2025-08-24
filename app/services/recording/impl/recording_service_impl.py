@@ -20,7 +20,6 @@ class RecordingServiceImpl(RecordingService):
         self.camera_repository = camera_repository
         self.recording_manager = recording_manager
 
-        # If on boot some recording were not stopped properly, set them as stopped here
         for recording in self.recording_repository.find_all():
             if not recording.is_completed:
                 self.recording_repository.set_stopped(recording)
@@ -31,7 +30,7 @@ class RecordingServiceImpl(RecordingService):
 
 
     def create_and_start_recording(self, recording: Recording, auto_restart: bool) -> Recording:
-        camera = self.camera_repository.find_by_ip(recording.camera_ip) # will throw if not found
+        camera = self.camera_repository.find_by_ip(recording.camera_ip)
 
         if not self.recording_manager.is_recording(recording.camera_ip):
             recording = self.recording_repository.create(recording)
@@ -41,7 +40,7 @@ class RecordingServiceImpl(RecordingService):
                 delay_execution(
                     func=self.restart,
                     args=(camera.ip,),
-                    delay_seconds= 60 * 60) # restart recording after n minutes to have separate files
+                    delay_seconds= 60 * 60)
 
             return recording
         else:
@@ -77,9 +76,7 @@ class RecordingServiceImpl(RecordingService):
 
     def delete_all(self) -> Sequence[Recording]:
         recordings = self.recording_repository.find_all()
-        # less efficient than delete all at db level but can't be fucked right now
         for recording in recordings:
-            # do not delete recordings that are still going on
             if recording.is_completed:
                 self.delete_by_id(recording.id)
         return recordings
@@ -101,7 +98,7 @@ class RecordingServiceImpl(RecordingService):
         file_path = os.path.join(recording.path, recording.name)
 
         return range_requests_response(
-            request, file_path=file_path, content_type="video/x-matroska"
+            request, file_path=file_path, content_type="video/mp4"
         )
 
 
@@ -111,18 +108,12 @@ class RecordingServiceImpl(RecordingService):
             raise BadRequestException("Recording is not yet completed")
 
         file_path = os.path.join(recording.path, recording.name)
-        return FileResponse(file_path, media_type="video/x-matroska", filename=recording.name)
+        return FileResponse(file_path, media_type="video/mp4", filename=recording.name)
 
 
-# Shamelessly copied from https://github.com/fastapi/fastapi/issues/1240#issuecomment-1055396884 to let
-# frontend seek in the video
 def send_bytes_range_requests(
     file_obj: BinaryIO, start: int, end: int, chunk_size: int = 10_000
 ):
-    """Send a file in chunks using Range Requests specification RFC7233
-
-    `start` and `end` parameters are inclusive due to specification
-    """
     with file_obj as f:
         f.seek(start)
         while (pos := f.tell()) <= end:
@@ -152,7 +143,6 @@ def _get_range_header(range_header: str, file_size: int) -> tuple[int, int]:
 def range_requests_response(
     request: Request, file_path: str, content_type: str
 ):
-    """Returns StreamingResponse using Range Requests of a given file"""
 
     file_size = os.stat(file_path).st_size
     range_header = request.headers.get("range")
