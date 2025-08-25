@@ -7,7 +7,7 @@ from sqlmodel import SQLModel
 
 class UserResponse(SQLModel):
     id: int
-    email: str
+    username: str
     permissions: List[str]
 
 
