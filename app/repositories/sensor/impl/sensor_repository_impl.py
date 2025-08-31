@@ -1,5 +1,5 @@
 from typing import Sequence
-from sqlmodel import select
+from sqlmodel import select, and_
 
 from app.database.database_connector import DatabaseConnector
 from app.exceptions.bad_request_exception import BadRequestException
@@ -12,8 +12,22 @@ class SensorRepositoryImpl(SensorRepository):
     def __init__(self, database_connector: DatabaseConnector):
         self.database_connector = database_connector
 
-    def find_by_gpio_pin_number(self, gpio_pin_number: int) -> Sensor:
-        statement = select(Sensor).where(Sensor.gpio_pin_number == gpio_pin_number)
+    def find_by_id(self, sensor_id: str) -> Sensor:
+        statement = select(Sensor).where(Sensor.id == sensor_id)
+        session = self.database_connector.get_new_session()
+        sensor_db = session.exec(statement).first()
+        session.close()
+        if sensor_db is None:
+            raise NotFoundException("Sensor was not found")
+        return sensor_db
+
+    def find_by_server_and_pin(self, server_url: str, gpio_pin_number: int) -> Sensor:
+        statement = select(Sensor).where(
+            and_(
+                Sensor.gpio_server_url == server_url,
+                Sensor.gpio_pin_number == gpio_pin_number
+            )
+        )
         session = self.database_connector.get_new_session()
         sensor_db = session.exec(statement).first()
         session.close()
@@ -22,32 +36,35 @@ class SensorRepositoryImpl(SensorRepository):
         return sensor_db
 
     def create(self, sensor: Sensor) -> Sensor:
-        try:
-            self.find_by_gpio_pin_number(sensor.gpio_pin_number)
-        except NotFoundException:
-            session = self.database_connector.get_new_session()
-            session.add(sensor)
-            session.commit()
-            session.refresh(sensor)
-            session.close()
-            return sensor
-        raise BadRequestException("Sensor already exists")
+        # Check if sensor with same server_url and pin already exists
+        if self.exists_by_server_and_pin(sensor.gpio_server_url, sensor.gpio_pin_number):
+            raise BadRequestException(
+                f"Sensor with pin {sensor.gpio_pin_number} on server {sensor.gpio_server_url} already exists"
+            )
+
+        session = self.database_connector.get_new_session()
+        session.add(sensor)
+        session.commit()
+        session.refresh(sensor)
+        session.close()
+        return sensor
 
     def update(self, sensor: Sensor) -> Sensor:
-        statement = select(Sensor).where(Sensor.gpio_pin_number == sensor.gpio_pin_number)
+        statement = select(Sensor).where(Sensor.id == sensor.id)
         session = self.database_connector.get_new_session()
         sensor_db = session.exec(statement).first()
         if sensor_db is None:
             raise NotFoundException("Sensor was not found")
 
         sensor_db.name = sensor.name
+        # Note: gpio_pin_number and gpio_server_url should not be updated
         session.commit()
         session.refresh(sensor_db)
         session.close()
         return sensor_db
 
-    def delete_by_gpio_pin_number(self, gpio_pin_number: int) -> Sensor:
-        statement = select(Sensor).where(Sensor.gpio_pin_number == gpio_pin_number)
+    def delete_by_id(self, sensor_id: str) -> Sensor:
+        statement = select(Sensor).where(Sensor.id == sensor_id)
         session = self.database_connector.get_new_session()
         sensor_db = session.exec(statement).first()
         if sensor_db is None:
@@ -66,7 +83,7 @@ class SensorRepositoryImpl(SensorRepository):
         return result
 
     def update_listening(self, sensor: Sensor, listening: bool) -> Sensor:
-        statement = select(Sensor).where(Sensor.gpio_pin_number == sensor.gpio_pin_number)
+        statement = select(Sensor).where(Sensor.id == sensor.id)
         session = self.database_connector.get_new_session()
         sensor_db = session.exec(statement).first()
         if sensor_db is None:
@@ -77,3 +94,15 @@ class SensorRepositoryImpl(SensorRepository):
         session.refresh(sensor_db)
         session.close()
         return sensor_db
+
+    def exists_by_server_and_pin(self, server_url: str, gpio_pin_number: int) -> bool:
+        statement = select(Sensor).where(
+            and_(
+                Sensor.gpio_server_url == server_url,
+                Sensor.gpio_pin_number == gpio_pin_number
+            )
+        )
+        session = self.database_connector.get_new_session()
+        sensor_db = session.exec(statement).first()
+        session.close()
+        return sensor_db is not None

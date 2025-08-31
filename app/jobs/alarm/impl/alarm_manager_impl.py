@@ -31,9 +31,9 @@ class AlarmManagerImpl(AlarmManager):
         self.sensor_repository = sensor_repository
         self.alarm = False
 
-    def on_sensor_triggered(self, sensor_pin: int):
+    def on_sensor_triggered(self, sensor_id: str):
         """Called when any sensor is triggered (goes HIGH)"""
-        sensor = self.sensor_repository.find_by_gpio_pin_number(sensor_pin)
+        sensor = self.sensor_repository.find_by_id(sensor_id)
         group = self.device_group_repository.find_listening_device_group()
         current_time = time.time()
 

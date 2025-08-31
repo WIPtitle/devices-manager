@@ -54,8 +54,9 @@ class DeviceGroupRouter(RouterWrapper):
             return self.device_group_service.get_device_group_sensors_by_id(group_id)
 
         @self.router.put("/{group_id}/sensors")
-        def update_device_group_sensors(group_id: int, sensor_pins: Sequence[int]) -> Sequence[Sensor]:
-            return self.device_group_service.update_device_group_sensors_by_id(group_id, sensor_pins)
+        def update_device_group_sensors(group_id: int, sensor_ids: Sequence[str]) -> Sequence[Sensor]:
+            # Changed from sensor_pins to sensor_ids
+            return self.device_group_service.update_device_group_sensors_by_id(group_id, sensor_ids)
 
         @self.router.delete("/{group_id}")
         def delete_device_group(group_id: int) -> DeviceGroup:

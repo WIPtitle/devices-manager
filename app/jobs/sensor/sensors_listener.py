@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import List
 from app.models.sensor import Sensor
 
 
@@ -22,4 +23,9 @@ class SensorsListener:
     @abstractmethod
     def get_status_by_sensor(self, sensor: Sensor) -> int:
         """Returns 0 for LOW, 1 for HIGH"""
+        pass
+
+    @abstractmethod
+    def get_available_servers(self) -> List[str]:
+        """Get list of available GPIO monitor servers"""
         pass

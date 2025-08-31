@@ -26,7 +26,7 @@ class DeviceGroupRepository(ABC):
         pass
 
     @abstractmethod
-    def update_device_group_sensors_by_id(self, device_group_id: int, sensor_pins: Sequence[int]) -> Sequence[Sensor]:
+    def update_device_group_sensors_by_id(self, device_group_id: int, sensor_ids: Sequence[str]) -> Sequence[Sensor]:
         pass
 
     @abstractmethod

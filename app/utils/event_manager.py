@@ -12,7 +12,7 @@ class EventType(Enum):
 @dataclass
 class Event:
     type: EventType
-    entity_id: Any  # gpio_pin_number for sensors, group_id for device groups
+    entity_id: Any  # sensor_id (str) for sensors, group_id (int) for device groups
     data: Any  # The new state/status
 
 
@@ -32,18 +32,18 @@ class EventManager:
             return
         self._initialized = True
         # Dictionary of entity_id -> list of queues for subscribers
-        self._sensor_subscribers: Dict[int, List[asyncio.Queue]] = {}
+        self._sensor_subscribers: Dict[str, List[asyncio.Queue]] = {}  # Changed to str for sensor IDs
         self._device_group_subscribers: Dict[int, List[asyncio.Queue]] = {}
         self._lock = asyncio.Lock()
 
-    async def subscribe_to_sensor(self, gpio_pin_number: int) -> asyncio.Queue:
+    async def subscribe_to_sensor(self, sensor_id: str) -> asyncio.Queue:
         """Subscribe to sensor state changes"""
         async with self._lock:
             queue = asyncio.Queue()
-            if gpio_pin_number not in self._sensor_subscribers:
-                self._sensor_subscribers[gpio_pin_number] = []
-            self._sensor_subscribers[gpio_pin_number].append(queue)
-            print(f"New subscription to sensor {gpio_pin_number}")
+            if sensor_id not in self._sensor_subscribers:
+                self._sensor_subscribers[sensor_id] = []
+            self._sensor_subscribers[sensor_id].append(queue)
+            print(f"New subscription to sensor {sensor_id}")
             return queue
 
     async def subscribe_to_device_group(self, group_id: int) -> asyncio.Queue:
@@ -56,15 +56,15 @@ class EventManager:
             print(f"New subscription to device group {group_id}")
             return queue
 
-    async def unsubscribe_sensor(self, gpio_pin_number: int, queue: asyncio.Queue):
+    async def unsubscribe_sensor(self, sensor_id: str, queue: asyncio.Queue):
         """Unsubscribe from sensor events"""
         async with self._lock:
-            if gpio_pin_number in self._sensor_subscribers:
+            if sensor_id in self._sensor_subscribers:
                 try:
-                    self._sensor_subscribers[gpio_pin_number].remove(queue)
-                    if not self._sensor_subscribers[gpio_pin_number]:
-                        del self._sensor_subscribers[gpio_pin_number]
-                    print(f"Unsubscribed from sensor {gpio_pin_number}")
+                    self._sensor_subscribers[sensor_id].remove(queue)
+                    if not self._sensor_subscribers[sensor_id]:
+                        del self._sensor_subscribers[sensor_id]
+                    print(f"Unsubscribed from sensor {sensor_id}")
                 except ValueError:
                     pass
 
@@ -80,22 +80,22 @@ class EventManager:
                 except ValueError:
                     pass
 
-    async def publish_sensor_event(self, gpio_pin_number: int, state: int):
+    async def publish_sensor_event(self, sensor_id: str, state: int):
         """Publish a sensor state change event"""
         event = Event(
             type=EventType.SENSOR_STATE_CHANGED,
-            entity_id=gpio_pin_number,
+            entity_id=sensor_id,
             data=state
         )
 
         async with self._lock:
-            if gpio_pin_number in self._sensor_subscribers:
+            if sensor_id in self._sensor_subscribers:
                 # Send to all subscribers
-                for queue in self._sensor_subscribers[gpio_pin_number]:
+                for queue in self._sensor_subscribers[sensor_id]:
                     try:
                         await queue.put(event)
                     except asyncio.QueueFull:
-                        print(f"Queue full for sensor {gpio_pin_number} subscriber")
+                        print(f"Queue full for sensor {sensor_id} subscriber")
 
     async def publish_device_group_event(self, group_id: int, status: str):
         """Publish a device group status change event"""
@@ -114,17 +114,17 @@ class EventManager:
                     except asyncio.QueueFull:
                         print(f"Queue full for device group {group_id} subscriber")
 
-    def publish_sensor_event_sync(self, gpio_pin_number: int, state: int):
+    def publish_sensor_event_sync(self, sensor_id: str, state: int):
         """Synchronous wrapper for publishing sensor events from non-async contexts"""
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                asyncio.create_task(self.publish_sensor_event(gpio_pin_number, state))
+                asyncio.create_task(self.publish_sensor_event(sensor_id, state))
             else:
-                loop.run_until_complete(self.publish_sensor_event(gpio_pin_number, state))
+                loop.run_until_complete(self.publish_sensor_event(sensor_id, state))
         except RuntimeError:
             # If there's no event loop, create one
-            asyncio.run(self.publish_sensor_event(gpio_pin_number, state))
+            asyncio.run(self.publish_sensor_event(sensor_id, state))
 
     def publish_device_group_event_sync(self, group_id: int, status: str):
         """Synchronous wrapper for publishing device group events from non-async contexts"""

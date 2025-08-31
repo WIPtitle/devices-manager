@@ -20,8 +20,14 @@ class PinState:
 
 
 class GpioMonitorClient:
-    def __init__(self):
-        self.gpio_monitor_url = os.getenv("GPIO_MONITOR_URL", "http://localhost:8787")
+    def __init__(self, gpio_monitor_url: str):
+        """
+        Initialize GPIO Monitor client for a single server
+
+        Args:
+            gpio_monitor_url: URL of the GPIO Monitor server
+        """
+        self.gpio_monitor_url = gpio_monitor_url
         self.callbacks: Dict[int, Callable[[int, int], None]] = {}
         self.running = False
         self.thread = None

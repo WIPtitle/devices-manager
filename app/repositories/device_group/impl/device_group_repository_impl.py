@@ -68,14 +68,15 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         session.close()
         return sensors
 
-    def update_device_group_sensors_by_id(self, device_group_id: int, sensor_pins: Sequence[int]) -> Sequence[Sensor]:
+    def update_device_group_sensors_by_id(self, device_group_id: int, sensor_ids: Sequence[str]) -> Sequence[Sensor]:
         statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
         session = self.database_connector.get_new_session()
         device_group = session.exec(statement).unique().first()
         if device_group is None:
             raise NotFoundException("Device group was not found")
 
-        statement = select(Sensor).where(Sensor.gpio_pin_number.in_(sensor_pins))
+        # Updated to use sensor IDs instead of pin numbers
+        statement = select(Sensor).where(Sensor.id.in_(sensor_ids))
         new_sensors = session.exec(statement).unique().all()
 
         device_group.sensors = new_sensors

@@ -88,10 +88,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
     def get_device_group_sensors_by_id(self, group_id: int) -> Sequence[Sensor]:
         return self.device_group_repository.find_device_group_sensors_by_id(group_id)
 
-    def update_device_group_sensors_by_id(self, group_id: int, sensor_pins: Sequence[int]) -> Sequence[Sensor]:
+    def update_device_group_sensors_by_id(self, group_id: int, sensor_ids: Sequence[str]) -> Sequence[Sensor]:
         if self.device_group_repository.find_device_group_by_id(group_id).status != DeviceGroupStatus.IDLE:
             raise BadRequestException("Can't update while not idle")
-        return self.device_group_repository.update_device_group_sensors_by_id(group_id, sensor_pins)
+        return self.device_group_repository.update_device_group_sensors_by_id(group_id, sensor_ids)
 
     def get_all_device_groups(self) -> Sequence[DeviceGroup]:
         return self.device_group_repository.find_all_devices_groups()

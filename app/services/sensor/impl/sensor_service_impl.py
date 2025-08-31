@@ -1,5 +1,5 @@
 import asyncio
-from typing import Sequence
+from typing import Sequence, List
 
 from app.exceptions.bad_request_exception import BadRequestException
 from app.exceptions.unupdateable_data_exception import UnupdateableDataException
@@ -21,10 +21,10 @@ class SensorServiceImpl(SensorService):
                 self.sensors_listener.add_sensor(sensor)
             except Exception as e:
                 # Log but don't fail startup if a sensor is no longer monitored
-                print(f"Warning: Could not add sensor on pin {sensor.gpio_pin_number}: {e}")
+                print(f"Warning: Could not add sensor {sensor.id}: {e}")
 
-    def get_by_pin(self, gpio_pin_number: int) -> Sensor:
-        return self.sensor_repository.find_by_gpio_pin_number(gpio_pin_number)
+    def get_by_id(self, sensor_id: str) -> Sensor:
+        return self.sensor_repository.find_by_id(sensor_id)
 
     def create(self, sensor: Sensor) -> Sensor:
         # First check if pin is monitored before creating
@@ -32,45 +32,53 @@ class SensorServiceImpl(SensorService):
         sensor = self.sensor_repository.create(sensor)
         return sensor
 
-    def update(self, gpio_pin_number: int, sensor: Sensor) -> Sensor:
-        if sensor.gpio_pin_number != gpio_pin_number:
+    def update(self, sensor_id: str, sensor: Sensor) -> Sensor:
+        if sensor.id != sensor_id:
+            raise UnupdateableDataException("Can't update sensor id")
+
+        # Don't allow updating gpio_pin_number or gpio_server_url
+        existing = self.sensor_repository.find_by_id(sensor_id)
+        if sensor.gpio_pin_number != existing.gpio_pin_number:
             raise UnupdateableDataException("Can't update gpio_pin_number")
+        if sensor.gpio_server_url != existing.gpio_server_url:
+            raise UnupdateableDataException("Can't update gpio_server_url")
 
         if sensor.listening:
             raise BadRequestException("Can't set listening here")
 
-        if self.sensor_repository.find_by_gpio_pin_number(gpio_pin_number).listening:
+        if existing.listening:
             raise BadRequestException("Can't update while listening")
 
         sensor = self.sensor_repository.update(sensor)
         self.sensors_listener.update_sensor(sensor)
         return sensor
 
-    def delete_by_pin(self, gpio_pin_number: int) -> Sensor:
-        if self.sensor_repository.find_by_gpio_pin_number(gpio_pin_number).listening:
+    def delete_by_id(self, sensor_id: str) -> Sensor:
+        sensor = self.sensor_repository.find_by_id(sensor_id)
+        if sensor.listening:
             raise BadRequestException("Can't delete while listening")
 
-        sensor = self.sensor_repository.delete_by_gpio_pin_number(gpio_pin_number)
+        sensor = self.sensor_repository.delete_by_id(sensor_id)
         self.sensors_listener.remove_sensor(sensor)
         return sensor
 
     def get_all(self) -> Sequence[Sensor]:
         return self.sensor_repository.find_all()
 
-    def get_status_by_pin(self, gpio_pin_number: int) -> int:
-        sensor = self.sensor_repository.find_by_gpio_pin_number(gpio_pin_number)
+    def get_status_by_id(self, sensor_id: str) -> int:
+        sensor = self.sensor_repository.find_by_id(sensor_id)
         return self.sensors_listener.get_status_by_sensor(sensor)
 
-    async def get_sensor_status_stream_by_pin(self, gpio_pin_number: int):
+    async def get_sensor_status_stream_by_id(self, sensor_id: str):
         """Stream sensor status updates using events instead of polling"""
         # First, send the current status
-        sensor = self.sensor_repository.find_by_gpio_pin_number(gpio_pin_number)
+        sensor = self.sensor_repository.find_by_id(sensor_id)
         current_status = self.sensors_listener.get_status_by_sensor(sensor)
         status_text = "HIGH" if current_status == 1 else "LOW"
         yield f"data: {status_text}\n\n"
 
-        # Subscribe to events for this sensor
-        queue = await event_manager.subscribe_to_sensor(gpio_pin_number)
+        # Subscribe to events for this sensor (using sensor ID now)
+        queue = await event_manager.subscribe_to_sensor(sensor_id)
 
         try:
             while True:
@@ -84,5 +92,9 @@ class SensorServiceImpl(SensorService):
                     yield f": keep-alive\n\n"
         finally:
             # Clean up subscription when client disconnects
-            await event_manager.unsubscribe_sensor(gpio_pin_number, queue)
-            print(f"Client disconnected from sensor {gpio_pin_number} stream")
+            await event_manager.unsubscribe_sensor(sensor_id, queue)
+            print(f"Client disconnected from sensor {sensor_id} stream")
+
+    def get_available_gpio_servers(self) -> List[str]:
+        """Get list of available GPIO monitor servers"""
+        return self.sensors_listener.get_available_servers()

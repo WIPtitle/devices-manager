@@ -5,7 +5,11 @@ from app.models.sensor import Sensor
 
 class SensorRepository(ABC):
     @abstractmethod
-    def find_by_gpio_pin_number(self, gpio_pin_number: int) -> Sensor:
+    def find_by_id(self, sensor_id: str) -> Sensor:
+        pass
+
+    @abstractmethod
+    def find_by_server_and_pin(self, server_url: str, gpio_pin_number: int) -> Sensor:
         pass
 
     @abstractmethod
@@ -17,7 +21,7 @@ class SensorRepository(ABC):
         pass
 
     @abstractmethod
-    def delete_by_gpio_pin_number(self, gpio_pin_number: int) -> Sensor:
+    def delete_by_id(self, sensor_id: str) -> Sensor:
         pass
 
     @abstractmethod
@@ -26,4 +30,8 @@ class SensorRepository(ABC):
 
     @abstractmethod
     def update_listening(self, sensor: Sensor, listening: bool) -> Sensor:
+        pass
+
+    @abstractmethod
+    def exists_by_server_and_pin(self, server_url: str, gpio_pin_number: int) -> bool:
         pass

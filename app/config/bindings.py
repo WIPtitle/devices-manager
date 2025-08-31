@@ -1,6 +1,6 @@
 import os
 from functools import wraps
-from typing import Callable, get_type_hints
+from typing import Callable, get_type_hints, List, Tuple
 
 from app.repositories.sensor.impl.sensor_repository_impl import SensorRepositoryImpl
 from rabbitmq_sdk.client.impl.rabbitmq_client_impl import RabbitMQClientImpl
@@ -49,8 +49,14 @@ rabbitmq_client = RabbitMQClientImpl.from_config(
     password=rabbit_credentials['RABBITMQ_PASSWORD']
 ).with_current_service(Service.DEVICES_MANAGER)
 
-# GPIO Monitor Client
-gpio_monitor_client = GpioMonitorClient()
+gpio_urls = os.getenv("GPIO_MONITOR_URLS", "http://localhost:8787")
+gpio_monitor_urls = [url.strip() for url in gpio_urls.split(",")]
+gpio_monitor_clients: List[Tuple[str, GpioMonitorClient]] = []
+
+for gpio_url in gpio_monitor_urls:
+    client = GpioMonitorClient(gpio_url)
+    gpio_monitor_clients.append((gpio_url, client))
+    print(f"Created GPIO Monitor client for {gpio_url}")
 
 # Event Manager (singleton)
 bindings[EventManager] = event_manager
@@ -65,7 +71,9 @@ device_group_repository = DeviceGroupRepositoryImpl(database_connector=database_
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
 alarm_manager = AlarmManagerImpl(rabbitmq_client, recording_service, device_group_repository, camera_repository, sensor_repository)
-sensors_listener = SensorsListenerImpl(alarm_manager, sensor_repository, gpio_monitor_client)
+
+sensors_listener = SensorsListenerImpl(alarm_manager, sensor_repository, gpio_monitor_clients)
+
 device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, sensor_repository, alarm_manager, rabbitmq_client)
 sensor_service = SensorServiceImpl(sensor_repository=sensor_repository, sensors_listener=sensors_listener)
 camera_service = CameraServiceImpl(camera_repository=camera_repository, recording_service=recording_service)
@@ -73,7 +81,7 @@ camera_service = CameraServiceImpl(camera_repository=camera_repository, recordin
 # Put them in an interface -> instance dict so they will be used everytime a dependency is required
 bindings[DatabaseConnector] = database_connector
 bindings[RabbitMQClient] = rabbitmq_client
-bindings[GpioMonitorClient] = gpio_monitor_client
+bindings['gpio_monitor_clients'] = gpio_monitor_clients
 
 bindings[CameraRepository] = camera_repository
 bindings[RecordingRepository] = recording_repository

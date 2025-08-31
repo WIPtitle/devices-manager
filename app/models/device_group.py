@@ -12,7 +12,7 @@ class DeviceGroupInputDto(SQLModel):
 
 class DeviceGroupSensorLink(SQLModel, table=True):
     device_group_id: int = Field(foreign_key="devicegroup.id", primary_key=True)
-    sensor_gpio_pin_number: int = Field(foreign_key="sensor.gpio_pin_number", primary_key=True)
+    sensor_id: str = Field(foreign_key="sensor.id", primary_key=True)  # Changed from gpio_pin_number to sensor_id
 
 
 class DeviceGroup(SQLModel, table=True):
