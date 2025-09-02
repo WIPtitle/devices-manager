@@ -41,9 +41,15 @@ class CameraRouter(RouterWrapper):
             cmd = [
                 "ffmpeg",
                 "-rtsp_transport", "tcp",
+                "-fflags", "nobuffer",
+                "-flags", "low_delay",
+                "-strict", "experimental",
+                "-analyzeduration", "1000000",
+                "-probesize", "32",
                 "-i", f"rtsp://{camera.username}:{camera.password}@{camera.ip}:{camera.port}/{camera.path}",
                 "-c:v", "copy",
                 "-an",
+                "-flush_packets", "1",
                 "-f", "matroska",
                 "-"
             ]
@@ -57,7 +63,7 @@ class CameraRouter(RouterWrapper):
 
                 try:
                     while True:
-                        chunk = await process.stdout.read(65536)
+                        chunk = await process.stdout.read(8192)
                         if not chunk:
                             break
                         yield chunk
