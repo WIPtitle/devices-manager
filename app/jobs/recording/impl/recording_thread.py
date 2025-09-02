@@ -21,30 +21,32 @@ class RecordingThread(threading.Thread):
         try:
             input_url = f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}"
 
-            cmd = [
-                "ffmpeg",
-                "-y",
-                "-rtsp_transport", "tcp",
-                "-timeout", "20000000",
-                "-use_wallclock_as_timestamps", "1",
-                "-fflags", "+genpts+discardcorrupt",
-                "-i", input_url,
-                "-rw_timeout", "20000000",
-                "-reconnect", "1",
-                "-reconnect_at_eof", "1",
-                "-reconnect_streamed", "1",
-                "-reconnect_delay_max", "20",
-                "-vcodec", "libx264",
-                "-vf", "fps=4,setpts=if(eq(N\\,0)\\,0\\,PTS+1/(4*TB))",
-                "-preset", "fast",
-                "-an",
-                "-fps_mode", "passthrough",
-                "-f", "matroska",
-                "-copytb", "1",
-                "-avoid_negative_ts", "make_zero",
-                "-loglevel", "warning",
-                self.file_path
-            ]
+            if self.camera.always_recording:
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-rtsp_transport", "tcp",
+                    "-i", input_url,
+                    "-c:v", "copy",
+                    "-f", "matroska",
+                    "-avoid_negative_ts", "make_zero",
+                    "-use_wallclock_as_timestamps", "1",
+                    "-loglevel", "warning",
+                    self.file_path
+                ]
+            else:
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-rtsp_transport", "tcp",
+                    "-i", input_url,
+                    "-t", "120",
+                    "-c:v", "copy",
+                    "-f", "matroska",
+                    "-avoid_negative_ts", "make_zero",
+                    "-loglevel", "warning",
+                    self.file_path
+                ]
 
             proc = subprocess.Popen(
                 cmd,
@@ -55,15 +57,12 @@ class RecordingThread(threading.Thread):
             while True:
                 return_code = proc.poll()
                 if return_code is not None:
-                    # Process exited
                     if return_code != 0 and self.running:
                         self.on_error_callback(self.recording)
                     break
 
                 if not self.running:
-                    # Signal termination
                     proc.terminate()
-                    # Wait for process to finish
                     proc.wait()
                     break
 
@@ -80,6 +79,5 @@ class RecordingThread(threading.Thread):
     def stop(self):
         if self.running is not None:
             self.running = False
-            # Wait until thread cleans up
             while self.running is not None:
                 time.sleep(0.1)
