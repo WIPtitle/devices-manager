@@ -113,6 +113,9 @@ class RecordingServiceImpl(RecordingService):
         file_path = os.path.join(recording.path, recording.name)
         return FileResponse(file_path, media_type="video/x-matroska", filename=recording.name)
 
+    def is_recording(self, camera_ip: str) -> bool:
+        return self.recording_manager.is_recording(camera_ip)
+
 
 # Shamelessly copied from https://github.com/fastapi/fastapi/issues/1240#issuecomment-1055396884 to let
 # frontend seek in the video

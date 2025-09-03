@@ -7,11 +7,15 @@ from app.models.recording import Recording
 
 class RecordingService(ABC):
     @abstractmethod
+    def is_recording(self, camera_ip: str) -> bool:
+        pass
+
+    @abstractmethod
     def get_by_id(self, rec_id: int) -> Recording:
         pass
 
     @abstractmethod
-    def create_and_start_recording(self, recording: Recording, auto_restart: bool) -> Recording:
+    def create_and_start_recording(self, recording: Recording) -> Recording:
         pass
 
     @abstractmethod
@@ -41,4 +45,3 @@ class RecordingService(ABC):
     @abstractmethod
     def download(self, rec_id: int):
         pass
-

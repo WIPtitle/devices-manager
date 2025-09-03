@@ -1,3 +1,4 @@
+import logging
 from typing import Sequence
 
 from app.exceptions.bad_request_exception import BadRequestException
@@ -7,41 +8,69 @@ from app.repositories.camera.camera_repository import CameraRepository
 from app.services.camera.camera_service import CameraService
 from app.services.recording.recording_service import RecordingService
 
+logger = logging.getLogger(__name__)
+
 
 class CameraServiceImpl(CameraService):
     def __init__(self, camera_repository: CameraRepository, recording_service: RecordingService):
         self.camera_repository = camera_repository
         self.recording_service = recording_service
+        self._start_initial_recordings()
 
-        # Start recording existing cameras on boot (only if always recording is set to true)
-        for camera in self.camera_repository.find_all():
+    def _start_initial_recordings(self):
+        logger.info("Starting initial recordings for always-on cameras...")
+        cameras = self.camera_repository.find_all()
+        started_count = 0
+
+        for camera in cameras:
             if camera.always_recording:
-                self.recording_service.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=True)), auto_restart=True)
+                try:
+                    if not self.recording_service.is_recording(camera.ip):
+                        self.recording_service.create_and_start_recording(
+                            Recording.from_dto(RecordingInputDto(
+                                camera_ip=camera.ip,
+                                always_recording=True
+                            ))
+                        )
+                        started_count += 1
+                        logger.info(f"Started recording for camera {camera.ip}")
+                    else:
+                        logger.info(f"Camera {camera.ip} already recording")
+                except Exception as e:
+                    logger.error(f"Failed to start recording for camera {camera.ip}: {e}")
 
+        logger.info(f"Initial recording startup complete. Started {started_count} recordings.")
 
     def get_by_ip(self, ip: str) -> Camera:
         return self.camera_repository.find_by_ip(ip)
 
-
     def create(self, camera: Camera) -> Camera:
-        # Stop user from adding an unreachable camera.
-        # A camera can still become unreachable but prevent creating one that already is.
         if not camera.is_reachable():
             raise BadRequestException("Camera is not reachable")
 
         camera = self.camera_repository.create(camera)
 
-        # Start recording new camera if needed
         if camera.always_recording:
-            self.recording_service.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=True)), auto_restart=True)
-        return camera
+            try:
+                self.recording_service.create_and_start_recording(
+                    Recording.from_dto(RecordingInputDto(
+                        camera_ip=camera.ip,
+                        always_recording=True
+                    ))
+                )
+                logger.info(f"Started recording for new camera {camera.ip}")
+            except Exception as e:
+                logger.error(f"Failed to start recording for new camera {camera.ip}: {e}")
 
+        return camera
 
     def delete_by_ip(self, ip: str) -> Camera:
         camera = self.camera_repository.delete_by_ip(ip)
-        self.recording_service.stop_by_camera_ip(ip)
+        try:
+            self.recording_service.stop_by_camera_ip(ip)
+        except Exception as e:
+            logger.error(f"Error stopping recording for deleted camera {ip}: {e}")
         return camera
-
 
     def get_all(self) -> Sequence[Camera]:
         return self.camera_repository.find_all()
