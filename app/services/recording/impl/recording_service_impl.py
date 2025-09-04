@@ -7,11 +7,10 @@ from fastapi.responses import StreamingResponse, FileResponse
 from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.models.enums.recording_type import RecordingType
-from app.models.recording import Recording, RecordingInputDto
+from app.models.recording import Recording
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.recording.recording_repository import RecordingRepository
 from app.services.recording.recording_service import RecordingService
-from app.utils.delayed_execution import delay_execution
 
 
 class RecordingServiceImpl(RecordingService):
@@ -23,41 +22,21 @@ class RecordingServiceImpl(RecordingService):
         # If on boot some recording were not stopped properly, set them as stopped here
         for recording in self.recording_repository.find_all():
             if not recording.is_completed:
+                logger.info(f"Setting incomplete recording {recording.id} as completed on startup")
                 self.recording_repository.set_stopped(recording)
-
 
     def get_by_id(self, rec_id: int) -> Recording:
         return self.recording_repository.find_by_id(rec_id)
 
-
-    def create_and_start_recording(self, recording: Recording, auto_restart: bool) -> Recording:
-        camera = self.camera_repository.find_by_ip(recording.camera_ip) # will throw if not found
+    def create_and_start_recording(self, recording: Recording) -> Recording:
+        camera = self.camera_repository.find_by_ip(recording.camera_ip)
 
         if not self.recording_manager.is_recording(recording.camera_ip):
             recording = self.recording_repository.create(recording)
             self.recording_manager.start_recording(recording)
-
-            if auto_restart:
-                delay_execution(
-                    func=self.restart,
-                    args=(camera.ip,),
-                    delay_seconds= 60 * 60) # restart recording after n minutes to have separate files
-
             return recording
         else:
             raise BadRequestException("Recording already started")
-
-
-    def restart(self, camera_ip: str):
-        try:
-            print(f"Restarting recording for camera on {camera_ip}")
-            self.stop_by_camera_ip(camera_ip)
-            camera = self.camera_repository.find_by_ip(camera_ip)
-            auto_restart = camera.always_recording
-            self.create_and_start_recording(Recording.from_dto(RecordingInputDto(camera_ip=camera_ip, always_recording=camera.always_recording)), auto_restart=auto_restart)
-        except Exception as e:
-            pass
-
 
     def stop_by_camera_ip(self, camera_ip: str) -> Recording:
         recording = self.recording_manager.get_current_recording_by_camera_ip(camera_ip)
@@ -66,14 +45,12 @@ class RecordingServiceImpl(RecordingService):
             self.recording_repository.set_stopped(recording)
         return recording
 
-
     def delete_by_id(self, rec_id: int) -> Recording:
         recording = self.recording_repository.delete_by_id(rec_id)
         if not recording.is_completed:
             raise BadRequestException("Recording is not yet completed")
         self.recording_manager.delete_recording_file(recording)
         return recording
-
 
     def delete_all(self) -> Sequence[Recording]:
         recordings = self.recording_repository.find_all()
@@ -84,14 +61,11 @@ class RecordingServiceImpl(RecordingService):
                 self.delete_by_id(recording.id)
         return recordings
 
-
     def get_all(self) -> Sequence[Recording]:
         return self.recording_repository.find_all()
 
-
     def get_all_paginated(self, offset: int, recording_type: RecordingType) -> Sequence[Recording]:
         return self.recording_repository.find_all_paginated(offset=offset, recording_type=recording_type)
-
 
     def stream(self, request: Request, rec_id: int):
         recording = self.recording_repository.find_by_id(rec_id)
@@ -103,7 +77,6 @@ class RecordingServiceImpl(RecordingService):
         return range_requests_response(
             request, file_path=file_path, content_type="video/x-matroska"
         )
-
 
     def download(self, rec_id: int):
         recording = self.recording_repository.find_by_id(rec_id)

@@ -1,8 +1,11 @@
 import datetime
+import logging
 
 from sqlmodel import SQLModel, Field
 
 from app.models.enums.recording_type import RecordingType
+
+logger = logging.getLogger(__name__)
 
 
 # separation between normal recordings and alarm recordings
@@ -40,6 +43,8 @@ class Recording(SQLModel, table=True):
         else:
             path = get_alarm_recordings_path()
             rec_type = RecordingType.ALARM
+
+        logger.debug(f"Creating Recording: camera_ip={dto.camera_ip}, always_recording={dto.always_recording}, type={rec_type}, path={path}, name={file_name}")
 
         return cls(
             camera_ip=dto.camera_ip,

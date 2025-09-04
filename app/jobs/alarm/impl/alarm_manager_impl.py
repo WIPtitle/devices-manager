@@ -77,8 +77,7 @@ class AlarmManagerImpl(AlarmManager):
         for camera in self.camera_repository.find_all():
             if not camera.always_recording:
                 self.recording_service.create_and_start_recording(
-                    Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=False)),
-                    auto_restart=False)
+                    Recording.from_dto(RecordingInputDto(camera_ip=camera.ip, always_recording=False)))
 
     def stop_alarm(self):
         """Stop the alarm"""
