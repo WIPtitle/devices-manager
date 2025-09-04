@@ -5,23 +5,23 @@ from typing import AsyncGenerator
 logger = logging.getLogger(__name__)
 
 
-class FFmpegMJPEGStreamer:
+class FFmpegStreamer:
     def __init__(self, camera):
         self.camera = camera
         self.process = None
         self.running = False
 
-    async def generate_frames(self) -> AsyncGenerator[bytes, None]:
+    async def generate_stream(self) -> AsyncGenerator[bytes, None]:
         rtsp_url = f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}"
 
         cmd = [
             "ffmpeg",
             "-rtsp_transport", "tcp",
             "-i", rtsp_url,
-            "-r", "15",
-            "-s", "1280x720",
-            "-q:v", "5",
-            "-f", "mjpeg",
+            "-c:v", "copy",
+            "-f", "mp4",
+            "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+            "-frag_duration", "1000000",
             "-"
         ]
 
@@ -32,30 +32,13 @@ class FFmpegMJPEGStreamer:
         )
 
         self.running = True
-        buffer = b''
 
         try:
             while self.running:
                 chunk = await self.process.stdout.read(65536)
                 if not chunk:
                     break
-
-                buffer += chunk
-
-                while True:
-                    start = buffer.find(b'\xff\xd8')
-                    if start == -1:
-                        break
-
-                    end = buffer.find(b'\xff\xd9', start + 2)
-                    if end == -1:
-                        break
-
-                    jpeg = buffer[start:end + 2]
-                    buffer = buffer[end + 2:]
-
-                    yield (b'--frame\r\n'
-                           b'Content-Type: image/jpeg\r\n\r\n' + jpeg + b'\r\n')
+                yield chunk
 
         except Exception as e:
             logger.error(f"Stream error for {self.camera.ip}: {e}")
@@ -82,12 +65,12 @@ class FFmpegStreamManager:
         if stream_key in self.streamers:
             self.streamers[stream_key].cleanup()
 
-        streamer = FFmpegMJPEGStreamer(camera)
+        streamer = FFmpegStreamer(camera)
         self.streamers[stream_key] = streamer
 
         try:
-            async for frame in streamer.generate_frames():
-                yield frame
+            async for chunk in streamer.generate_stream():
+                yield chunk
         finally:
             if stream_key in self.streamers and self.streamers[stream_key] == streamer:
                 del self.streamers[stream_key]
