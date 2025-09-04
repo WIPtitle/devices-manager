@@ -22,7 +22,6 @@ class RecordingServiceImpl(RecordingService):
         # If on boot some recording were not stopped properly, set them as stopped here
         for recording in self.recording_repository.find_all():
             if not recording.is_completed:
-                logger.info(f"Setting incomplete recording {recording.id} as completed on startup")
                 self.recording_repository.set_stopped(recording)
 
     def get_by_id(self, rec_id: int) -> Recording:
