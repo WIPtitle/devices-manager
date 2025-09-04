@@ -35,6 +35,19 @@ class CameraRouter(RouterWrapper):
                 raise AuthorizationException("Not authorized")
             return self.camera_service.create(Camera.from_dto(camera))
 
+        @self.router.put("/{ip}")
+        async def update_camera(request: Request, ip: str, camera: CameraInputDto) -> Camera:
+            """Update camera - only name field can be modified"""
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "MODIFY_DEVICES" not in user.permissions:
+                raise AuthorizationException("Not authorized")
+
+            if camera.ip != ip:
+                raise BadRequestException("IP in path does not match IP in request body")
+
+            return self.camera_service.update(Camera.from_dto(camera))
+
         @self.router.delete("/{ip}")
         async def delete_camera_by_ip(request: Request, ip: str) -> Camera:
             token = request.headers.get("Authorization")

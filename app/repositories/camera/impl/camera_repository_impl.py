@@ -13,7 +13,6 @@ class CameraRepositoryImpl(CameraRepository):
     def __init__(self, database_connector: DatabaseConnector):
         self.database_connector = database_connector
 
-
     def find_by_ip(self, ip: str) -> Camera:
         statement = select(Camera).where(Camera.ip == ip)
         session = self.database_connector.get_new_session()
@@ -23,7 +22,6 @@ class CameraRepositoryImpl(CameraRepository):
             raise NotFoundException("Camera was not found")
 
         return camera_db
-
 
     def create(self, camera: Camera) -> Camera:
         try:
@@ -37,6 +35,34 @@ class CameraRepositoryImpl(CameraRepository):
             return camera
         raise BadRequestException("Camera already exists")
 
+    def update(self, camera: Camera) -> Camera:
+        session = self.database_connector.get_new_session()
+
+        statement = select(Camera).where(Camera.ip == camera.ip)
+        existing_camera = session.exec(statement).first()
+
+        if existing_camera is None:
+            session.close()
+            raise NotFoundException("Camera was not found")
+
+        if (existing_camera.port != camera.port or
+                existing_camera.username != camera.username or
+                existing_camera.password != camera.password or
+                existing_camera.path != camera.path or
+                existing_camera.always_recording != camera.always_recording):
+            session.close()
+            raise BadRequestException(
+                "Only the 'name' field can be modified"
+            )
+
+        existing_camera.name = camera.name
+
+        session.add(existing_camera)
+        session.commit()
+        session.refresh(existing_camera)
+        session.close()
+
+        return existing_camera
 
     def delete_by_ip(self, ip: str) -> Camera:
         statement = select(Camera).where(Camera.ip == ip)
@@ -48,7 +74,6 @@ class CameraRepositoryImpl(CameraRepository):
         session.commit()
         session.close()
         return camera_db
-
 
     def find_all(self) -> Sequence[Camera]:
         statement = select(Camera)

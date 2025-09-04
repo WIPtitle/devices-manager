@@ -64,6 +64,11 @@ class CameraServiceImpl(CameraService):
 
         return camera
 
+    def update(self, camera: Camera) -> Camera:
+        updated_camera = self.camera_repository.update(camera)
+        logger.info(f"Updated camera {camera.ip}")
+        return updated_camera
+
     def delete_by_ip(self, ip: str) -> Camera:
         camera = self.camera_repository.delete_by_ip(ip)
         try:
