@@ -15,6 +15,17 @@ class AuthClient:
     def __init__(self):
         self.auth_hostname = os.getenv("AUTH_HOSTNAME")
 
+    async def get_authenticated_user(self, token: str):
+        url = f"http://{self.auth_hostname}:8000/auth/user"
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, headers={"Authorization": token})
+                response.raise_for_status()
+                user = response.json()
+                return UserResponse(**user)
+        except:
+            return None
+
     async def check_pin(self, token: str, pin: str):
         url = f"http://{self.auth_hostname}:8000/auth/user-from-pin?pin={pin}"
         try:

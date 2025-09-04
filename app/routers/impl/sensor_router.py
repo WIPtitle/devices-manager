@@ -1,7 +1,10 @@
 from typing import Sequence, List
+from fastapi import Request
 from fastapi.responses import StreamingResponse
 
+from app.clients.auth_client import AuthClient
 from app.config.bindings import inject
+from app.exceptions.authorization_exception import AuthorizationException
 from app.models.sensor import Sensor, SensorInputDto
 from app.routers.router_wrapper import RouterWrapper
 from app.services.sensor.sensor_service import SensorService
@@ -9,9 +12,10 @@ from app.services.sensor.sensor_service import SensorService
 
 class SensorRouter(RouterWrapper):
     @inject
-    def __init__(self, sensor_service: SensorService):
+    def __init__(self, sensor_service: SensorService, auth_client: AuthClient):
         super().__init__(prefix=f"/sensor")
         self.sensor_service = sensor_service
+        self.auth_client = auth_client
 
     def _define_routes(self):
         @self.router.get("/servers")
@@ -30,15 +34,27 @@ class SensorRouter(RouterWrapper):
 
         @self.router.post("/", operation_id="create_sensor_slash")
         @self.router.post("", operation_id="create_sensor_without_slash")
-        def create_sensor(sensor: SensorInputDto) -> Sensor:
+        async def create_sensor(request: Request, sensor: SensorInputDto) -> Sensor:
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "MODIFY_DEVICES" not in user.permissions:
+                raise AuthorizationException("Not authorized")
             return self.sensor_service.create(Sensor.from_dto(sensor))
 
         @self.router.put("/{sensor_id}")
-        def update_sensor(sensor_id: str, sensor: Sensor) -> Sensor:
+        async def update_sensor(request: Request, sensor_id: str, sensor: Sensor) -> Sensor:
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "MODIFY_DEVICES" not in user.permissions:
+                raise AuthorizationException("Not authorized")
             return self.sensor_service.update(sensor_id, sensor)
 
         @self.router.delete("/{sensor_id}")
-        def delete_sensor_by_id(sensor_id: str) -> Sensor:
+        async def delete_sensor_by_id(request: Request, sensor_id: str) -> Sensor:
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "MODIFY_DEVICES" not in user.permissions:
+                raise AuthorizationException("Not authorized")
             return self.sensor_service.delete_by_id(sensor_id)
 
         @self.router.get("/{sensor_id}/status")

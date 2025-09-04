@@ -1,3 +1,4 @@
+from app.clients.auth_client import AuthClient
 from app.config.bindings import inject
 from app.models.disk_usage import DiskUsage
 from app.models.recording import get_recordings_path
@@ -6,9 +7,9 @@ from app.routers.router_wrapper import RouterWrapper
 
 class DiskUsageRouter(RouterWrapper):
     @inject
-    def __init__(self):
+    def __init__(self, auth_client: AuthClient):
         super().__init__(prefix=f"/disk-usage")
-
+        self.auth_client = auth_client
 
     def _define_routes(self):
         @self.router.get("/", operation_id="get_disk_usage_with_slash")

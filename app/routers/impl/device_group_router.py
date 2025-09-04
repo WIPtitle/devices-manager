@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from app.clients.auth_client import AuthClient
 from app.config.bindings import inject
 from app.exceptions.authentication_exception import AuthenticationException
+from app.exceptions.authorization_exception import AuthorizationException
 from app.exceptions.bad_request_exception import BadRequestException
 from app.models.device_group import DeviceGroup, DeviceGroupInputDto
 from app.models.enums.device_group_status import DeviceGroupStatus
@@ -32,7 +33,11 @@ class DeviceGroupRouter(RouterWrapper):
 
         @self.router.post("/")
         @self.router.post("", operation_id="post_device_group_without_slash")
-        def create_device_group(device_group_dto: DeviceGroupInputDto) -> DeviceGroup:
+        async def create_device_group(request: Request, device_group_dto: DeviceGroupInputDto) -> DeviceGroup:
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "MODIFY_DEVICES" not in user.permissions:
+                raise AuthorizationException("Not authorized")
             device_group = DeviceGroup.from_dto(device_group_dto)
             return self.device_group_service.create_device_group(device_group)
 
@@ -46,7 +51,7 @@ class DeviceGroupRouter(RouterWrapper):
 
         @self.router.get("/{group_id}/status/stream")
         def get_device_group_status_stream(group_id: int) -> StreamingResponse:
-            return StreamingResponse(self.device_group_service.get_device_group_status_stream_by_id(group_id), 
+            return StreamingResponse(self.device_group_service.get_device_group_status_stream_by_id(group_id),
                                    media_type="text/event-stream")
 
         @self.router.get("/{group_id}/sensors")
@@ -54,16 +59,28 @@ class DeviceGroupRouter(RouterWrapper):
             return self.device_group_service.get_device_group_sensors_by_id(group_id)
 
         @self.router.put("/{group_id}/sensors")
-        def update_device_group_sensors(group_id: int, sensor_ids: Sequence[str]) -> Sequence[Sensor]:
+        async def update_device_group_sensors(request: Request, group_id: int, sensor_ids: Sequence[str]) -> Sequence[Sensor]:
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "MODIFY_DEVICES" not in user.permissions:
+                raise AuthorizationException("Not authorized")
             # Changed from sensor_pins to sensor_ids
             return self.device_group_service.update_device_group_sensors_by_id(group_id, sensor_ids)
 
         @self.router.delete("/{group_id}")
-        def delete_device_group(group_id: int) -> DeviceGroup:
+        async def delete_device_group(request: Request, group_id: int) -> DeviceGroup:
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "MODIFY_DEVICES" not in user.permissions:
+                raise AuthorizationException("Not authorized")
             return self.device_group_service.delete_device_group(group_id)
 
         @self.router.put("/{group_id}")
-        def update_device_group(group_id: int, group: DeviceGroup) -> DeviceGroup:
+        async def update_device_group(request: Request, group_id: int, group: DeviceGroup) -> DeviceGroup:
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "MODIFY_DEVICES" not in user.permissions:
+                raise AuthorizationException("Not authorized")
             return self.device_group_service.update_device_group(group_id, group)
 
         @self.router.get("/")
@@ -73,16 +90,24 @@ class DeviceGroupRouter(RouterWrapper):
 
         @self.router.post("/{group_id}/start-listening")
         async def start_listening(request: Request, group_id: int):
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "START_ALARM" not in user.permissions:
+                raise AuthorizationException("Not authorized")
             body = await request.json()
             pin = body.get("pin")
-            if not await self.auth_client.check_pin(token=request.headers.get("Authorization"), pin=pin):
+            if not await self.auth_client.check_pin(token=token, pin=pin):
                 raise AuthenticationException("Incorrect PIN")
             return self.device_group_service.start_listening(group_id)
 
         @self.router.post("/{group_id}/stop-listening")
         async def stop_listening(request: Request, group_id: int):
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "STOP_ALARM" not in user.permissions:
+                raise AuthorizationException("Not authorized")
             body = await request.json()
             pin = body.get("pin")
-            if not await self.auth_client.check_pin(token=request.headers.get("Authorization"), pin=pin):
+            if not await self.auth_client.check_pin(token=token, pin=pin):
                 raise AuthenticationException("Incorrect PIN")
             return self.device_group_service.stop_listening(group_id)
