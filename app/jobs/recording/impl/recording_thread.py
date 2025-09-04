@@ -2,6 +2,7 @@ import os
 import threading
 import subprocess
 import time
+import signal
 
 from app.models.camera import Camera
 from app.models.recording import Recording
@@ -15,69 +16,196 @@ class RecordingThread(threading.Thread):
         self.on_error_callback = on_error_callback
         self.file_path = os.path.join(recording.path, recording.name)
         self.running = None
+        self.proc = None
+        self.retry_delay = 1
+        self.max_retry_delay = 30
+        self.segment_duration = 300
+        self.start_time = None
+        self.max_duration = None if camera.always_recording else 120
+        self.lock = threading.Lock()
 
     def run(self):
         self.running = True
+        self.start_time = time.time()
+
+        while self.running:
+            try:
+                if self.max_duration and (time.time() - self.start_time) >= self.max_duration:
+                    self.running = False
+                    break
+
+                if not self._run_ffmpeg():
+                    if self.running:
+                        time.sleep(min(self.retry_delay, self.max_retry_delay))
+                        self.retry_delay = min(self.retry_delay * 2, self.max_retry_delay)
+                    continue
+
+                self.retry_delay = 1
+
+            except Exception as e:
+                print(f"Error in recording thread: {e}")
+                if self.running:
+                    time.sleep(min(self.retry_delay, self.max_retry_delay))
+                    self.retry_delay = min(self.retry_delay * 2, self.max_retry_delay)
+
+        self.running = None
+
+    def _run_ffmpeg(self):
         try:
             input_url = f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}"
 
-            if self.camera.always_recording:
-                cmd = [
-                    "ffmpeg",
-                    "-y",
-                    "-rtsp_transport", "tcp",
-                    "-i", input_url,
-                    "-c:v", "copy",
-                    "-f", "matroska",
-                    "-avoid_negative_ts", "make_zero",
-                    "-use_wallclock_as_timestamps", "1",
-                    "-loglevel", "warning",
-                    self.file_path
-                ]
-            else:
-                cmd = [
-                    "ffmpeg",
-                    "-y",
-                    "-rtsp_transport", "tcp",
-                    "-i", input_url,
-                    "-t", "120",
-                    "-c:v", "copy",
-                    "-f", "matroska",
-                    "-avoid_negative_ts", "make_zero",
-                    "-loglevel", "warning",
-                    self.file_path
-                ]
+            base_name = os.path.splitext(self.file_path)[0]
+            extension = os.path.splitext(self.file_path)[1] or '.mkv'
+            segment_path = f"{base_name}_%03d{extension}"
 
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-rtsp_transport", "tcp",
+                "-i", input_url,
+                "-c:v", "copy",
+                "-f", "segment",
+                "-segment_time", str(self.segment_duration),
+                "-segment_format", "matroska",
+                "-reset_timestamps", "1",
+                "-strftime", "0",
+                "-segment_start_number", "0",
+                "-avoid_negative_ts", "make_zero",
+                "-use_wallclock_as_timestamps", "1",
+                "-fflags", "+genpts+igndts",
+                "-max_delay", "500000",
+                "-reorder_queue_size", "0",
+                "-loglevel", "warning",
+                segment_path
+            ]
 
-            while True:
-                return_code = proc.poll()
+            if self.max_duration:
+                remaining = max(0, self.max_duration - (time.time() - self.start_time))
+                if remaining > 0:
+                    cmd.insert(cmd.index("-c:v"), "-t")
+                    cmd.insert(cmd.index("-c:v"), str(int(remaining)))
+                else:
+                    return False
+
+            with self.lock:
+                self.proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    preexec_fn=os.setsid if os.name != 'nt' else None
+                )
+
+            while self.running:
+                return_code = self.proc.poll()
+
                 if return_code is not None:
-                    if return_code != 0 and self.running:
-                        self.on_error_callback(self.recording)
-                    break
+                    with self.lock:
+                        self.proc = None
 
-                if not self.running:
-                    proc.terminate()
-                    proc.wait()
-                    break
+                    if return_code == 0:
+                        if self.max_duration and (time.time() - self.start_time) >= self.max_duration:
+                            return False
+                    return False
 
-                time.sleep(0.1)
+                if self.max_duration and (time.time() - self.start_time) >= self.max_duration:
+                    self._stop_ffmpeg()
+                    return False
+
+                time.sleep(0.5)
+
+            self._stop_ffmpeg()
+            return False
 
         except Exception as e:
-            print(f"Error in recording thread: {e}")
-            if self.running:
-                self.on_error_callback(self.recording)
+            print(f"FFmpeg error: {e}")
+            return False
 
-        finally:
-            self.running = None
+    def _stop_ffmpeg(self):
+        with self.lock:
+            if self.proc:
+                try:
+                    if os.name != 'nt':
+                        self.proc.send_signal(signal.SIGINT)
+                        try:
+                            self.proc.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
+                            try:
+                                self.proc.wait(timeout=2)
+                            except subprocess.TimeoutExpired:
+                                os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
+                                self.proc.wait()
+                    else:
+                        self.proc.terminate()
+                        try:
+                            self.proc.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            self.proc.kill()
+                            self.proc.wait()
+                except Exception as e:
+                    print(f"Error stopping ffmpeg: {e}")
+                finally:
+                    self.proc = None
+
+    def _merge_segments(self):
+        try:
+            base_name = os.path.splitext(self.file_path)[0]
+            extension = os.path.splitext(self.file_path)[1] or '.mkv'
+            segments = []
+
+            max_segments = 3700 // self.segment_duration if self.camera.always_recording else 15
+
+            for i in range(max_segments):
+                segment = f"{base_name}_{i:03d}{extension}"
+                if os.path.exists(segment):
+                    segments.append(segment)
+                else:
+                    break
+
+            if not segments:
+                return
+
+            if len(segments) == 1:
+                os.rename(segments[0], self.file_path)
+                return
+
+            concat_list = os.path.join(os.path.dirname(self.file_path), f".concat_{os.getpid()}.txt")
+            with open(concat_list, 'w') as f:
+                for segment in segments:
+                    f.write(f"file '{os.path.abspath(segment)}'\n")
+
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", concat_list,
+                "-c", "copy",
+                "-loglevel", "warning",
+                self.file_path
+            ]
+
+            result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+            if result.returncode == 0:
+                for segment in segments:
+                    try:
+                        os.remove(segment)
+                    except:
+                        pass
+
+            try:
+                os.remove(concat_list)
+            except:
+                pass
+
+        except Exception as e:
+            print(f"Error merging segments: {e}")
 
     def stop(self):
         if self.running is not None:
             self.running = False
+            self._stop_ffmpeg()
             while self.running is not None:
                 time.sleep(0.1)
+            self._merge_segments()
