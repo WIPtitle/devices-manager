@@ -128,10 +128,7 @@ class RecordingsManagerImpl(RecordingsManager):
         if recording.id in self.stopped_recordings:
             return
 
-        if recording.camera_ip not in self.persistent_recordings and not self._should_continue_alarm(recording):
-            return
-
-        print(f"Thread error for camera on {recording.camera_ip}, checking if restart needed...")
+        print(f"Thread completed for recording {recording.id} on camera {recording.camera_ip}")
 
         time.sleep(2)
 
@@ -141,9 +138,30 @@ class RecordingsManagerImpl(RecordingsManager):
 
             self.threads = [t for t in self.threads if t.recording.id != recording.id or t.is_alive()]
 
-            if recording.camera_ip in self.persistent_recordings:
-                if self.persistent_recordings[recording.camera_ip].id != recording.id:
-                    return
+            camera = self.camera_repository.find_by_ip(recording.camera_ip)
+
+            if camera.always_recording:
+                if recording.camera_ip not in self.persistent_recordings or self.persistent_recordings[
+                    recording.camera_ip].id == recording.id:
+                    try:
+                        self.recording_repository.set_stopped(recording)
+                        print(
+                            f"Marked recording {recording.id} as completed for always-on camera {recording.camera_ip}")
+
+                        new_recording = self.recording_repository.create(
+                            Recording.from_dto(RecordingInputDto(
+                                camera_ip=camera.ip,
+                                always_recording=True
+                            ))
+                        )
+                        self.start_recording(new_recording)
+                        print(f"Started new recording {new_recording.id} for always-on camera {recording.camera_ip}")
+                    except Exception as e:
+                        print(f"Error rotating recording for {recording.camera_ip}: {e}")
+                return
+
+            if not self._should_continue_alarm(recording):
+                return
 
             active_for_camera = any(
                 t.recording.camera_ip == recording.camera_ip and
@@ -156,18 +174,16 @@ class RecordingsManagerImpl(RecordingsManager):
                 return
 
         try:
-            camera = self.camera_repository.find_by_ip(recording.camera_ip)
-
-            if camera.always_recording or self._should_continue_alarm(recording):
+            if self._should_continue_alarm(recording):
                 new_recording = self.recording_repository.create(
                     Recording.from_dto(RecordingInputDto(
                         camera_ip=camera.ip,
-                        always_recording=camera.always_recording
+                        always_recording=False
                     ))
                 )
                 self.start_recording(new_recording)
         except Exception as e:
-            print(f"Error restarting recording for {recording.camera_ip}: {e}")
+            print(f"Error restarting alarm recording for {recording.camera_ip}: {e}")
 
     def _should_continue_alarm(self, recording: Recording):
         if not recording.always_recording:

@@ -19,9 +19,9 @@ class RecordingThread(threading.Thread):
         self.proc = None
         self.retry_delay = 1
         self.max_retry_delay = 30
-        self.segment_duration = 300
+        self.segment_duration = 300 if camera.always_recording else 10
         self.start_time = None
-        self.max_duration = None if camera.always_recording else 120
+        self.max_duration = 3600 if camera.always_recording else 120
         self.lock = threading.Lock()
 
     def run(self):
@@ -153,7 +153,7 @@ class RecordingThread(threading.Thread):
             extension = os.path.splitext(self.file_path)[1] or '.mkv'
             segments = []
 
-            max_segments = 3700 // self.segment_duration if self.camera.always_recording else 15
+            max_segments = (self.max_duration // self.segment_duration + 1) if self.max_duration else 20
 
             for i in range(max_segments):
                 segment = f"{base_name}_{i:03d}{extension}"
