@@ -19,36 +19,56 @@ class RecordingThread(threading.Thread):
         self.proc = None
         self.retry_delay = 1
         self.max_retry_delay = 30
-        self.segment_duration = 300 if camera.always_recording else 10
+
+        # Get always-on recording duration from environment (default 3600 seconds = 1 hour)
+        always_recording_duration = int(os.getenv('ALWAYS_RECORDING_DURATION_SECONDS', '3600'))
+
+        # Set max duration based on recording type
+        self.max_duration = always_recording_duration if camera.always_recording else 120
+
+        # Segment duration is 1/10 of the total duration
+        self.segment_duration = self.max_duration // 10
+
         self.start_time = None
-        self.max_duration = 3600 if camera.always_recording else 120
         self.lock = threading.Lock()
+
 
     def run(self):
         self.running = True
         self.start_time = time.time()
 
-        while self.running:
-            try:
-                if self.max_duration and (time.time() - self.start_time) >= self.max_duration:
-                    self.running = False
-                    break
+        try:
+            while self.running:
+                try:
+                    if self.max_duration and (time.time() - self.start_time) >= self.max_duration:
+                        self.running = False
+                        break
 
-                if not self._run_ffmpeg():
+                    if not self._run_ffmpeg():
+                        if self.running:
+                            time.sleep(min(self.retry_delay, self.max_retry_delay))
+                            self.retry_delay = min(self.retry_delay * 2, self.max_retry_delay)
+                        continue
+
+                    self.retry_delay = 1
+
+                except Exception as e:
+                    print(f"Error in recording thread: {e}")
                     if self.running:
                         time.sleep(min(self.retry_delay, self.max_retry_delay))
                         self.retry_delay = min(self.retry_delay * 2, self.max_retry_delay)
-                    continue
+        finally:
+            # Merge segments before marking as completed
+            self._merge_segments()
 
-                self.retry_delay = 1
+            # This notifies the manager that the recording has finished
+            if self.on_error_callback:
+                try:
+                    self.on_error_callback(self.recording)
+                except Exception as e:
+                    print(f"Error calling recording completion callback: {e}")
 
-            except Exception as e:
-                print(f"Error in recording thread: {e}")
-                if self.running:
-                    time.sleep(min(self.retry_delay, self.max_retry_delay))
-                    self.retry_delay = min(self.retry_delay * 2, self.max_retry_delay)
-
-        self.running = None
+            self.running = None
 
     def _run_ffmpeg(self):
         try:
@@ -153,7 +173,8 @@ class RecordingThread(threading.Thread):
             extension = os.path.splitext(self.file_path)[1] or '.mkv'
             segments = []
 
-            max_segments = (self.max_duration // self.segment_duration + 1) if self.max_duration else 20
+            # Calculate max possible segments (with some buffer)
+            max_segments = (self.max_duration // self.segment_duration + 2) if self.max_duration else 20
 
             for i in range(max_segments):
                 segment = f"{base_name}_{i:03d}{extension}"
@@ -208,4 +229,4 @@ class RecordingThread(threading.Thread):
             self._stop_ffmpeg()
             while self.running is not None:
                 time.sleep(0.1)
-            self._merge_segments()
+            # Don't merge here since it's already done in the run method's finally block

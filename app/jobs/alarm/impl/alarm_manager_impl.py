@@ -1,3 +1,4 @@
+import os
 import time
 
 from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
@@ -30,6 +31,9 @@ class AlarmManagerImpl(AlarmManager):
         self.camera_repository = camera_repository
         self.sensor_repository = sensor_repository
         self.alarm = False
+
+        # Read alarm recording duration from environment (default 120 seconds = 2 minutes)
+        self.alarm_recording_duration = int(os.getenv('ALARM_RECORDING_DURATION_SECONDS', '120'))
 
     def on_sensor_triggered(self, sensor_id: str):
         """Called when any sensor is triggered (goes HIGH)"""
@@ -65,10 +69,10 @@ class AlarmManagerImpl(AlarmManager):
         while not self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))):
             time.sleep(1)
 
-        # After two minutes, stop audio and recordings
+        # After the configured alarm duration, stop audio and recordings
         delay_execution(
             func=self.stop_alarm,
-            delay_seconds=120)
+            delay_seconds=self.alarm_recording_duration)
 
         while not self.rabbitmq_client.publish(event):
             time.sleep(1)

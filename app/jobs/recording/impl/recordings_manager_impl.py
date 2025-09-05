@@ -36,6 +36,9 @@ class RecordingsManagerImpl(RecordingsManager):
         self.stopped_recordings = set()
         self.persistent_recordings = {}
 
+        # Read alarm recording duration from environment (default 120 seconds = 2 minutes)
+        self.alarm_recording_duration = int(os.getenv('ALARM_RECORDING_DURATION_SECONDS', '120'))
+
     def is_recording(self, camera_ip: str):
         with self.threads_lock:
             self.threads = [t for t in self.threads if t.is_alive()]
@@ -195,5 +198,6 @@ class RecordingsManagerImpl(RecordingsManager):
                 except:
                     created_time = 0
             elapsed = time.time() - created_time
-            return elapsed < 120
+            # Use the configured alarm recording duration
+            return elapsed < self.alarm_recording_duration
         return False
