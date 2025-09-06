@@ -9,41 +9,26 @@ from app.models.recording import Recording
 
 
 class RecordingThread(threading.Thread):
-    def __init__(self, camera: 'Camera', recording: 'Recording', on_error_callback):
+    def __init__(self, camera: 'Camera', recording: 'Recording', segment_duration: int, on_completion_callback):
         super().__init__()
         self.camera = camera
         self.recording = recording
-        self.on_error_callback = on_error_callback
+        self.segment_duration = segment_duration
+        self.on_completion_callback = on_completion_callback
         self.file_path = os.path.join(recording.path, recording.name)
-        self.running = None
+        self.running = False
         self.proc = None
         self.retry_delay = 1
         self.max_retry_delay = 30
-
-        # Get always-on recording duration from environment (default 3600 seconds = 1 hour)
-        always_recording_duration = int(os.getenv('ALWAYS_RECORDING_DURATION_SECONDS', '3600'))
-
-        # Set max duration based on recording type
-        self.max_duration = always_recording_duration if camera.always_recording else 120
-
-        # Segment duration is 1/10 of the total duration
-        self.segment_duration = self.max_duration // 10
-
-        self.start_time = None
         self.lock = threading.Lock()
-
+        self.merge_completed = False
 
     def run(self):
         self.running = True
-        self.start_time = time.time()
 
         try:
             while self.running:
                 try:
-                    if self.max_duration and (time.time() - self.start_time) >= self.max_duration:
-                        self.running = False
-                        break
-
                     if not self._run_ffmpeg():
                         if self.running:
                             time.sleep(min(self.retry_delay, self.max_retry_delay))
@@ -58,17 +43,14 @@ class RecordingThread(threading.Thread):
                         time.sleep(min(self.retry_delay, self.max_retry_delay))
                         self.retry_delay = min(self.retry_delay * 2, self.max_retry_delay)
         finally:
-            # Merge segments before marking as completed
             self._merge_segments()
+            self.merge_completed = True
 
-            # This notifies the manager that the recording has finished
-            if self.on_error_callback:
+            if self.on_completion_callback:
                 try:
-                    self.on_error_callback(self.recording)
+                    self.on_completion_callback(self.recording)
                 except Exception as e:
                     print(f"Error calling recording completion callback: {e}")
-
-            self.running = None
 
     def _run_ffmpeg(self):
         try:
@@ -99,14 +81,6 @@ class RecordingThread(threading.Thread):
                 segment_path
             ]
 
-            if self.max_duration:
-                remaining = max(0, self.max_duration - (time.time() - self.start_time))
-                if remaining > 0:
-                    cmd.insert(cmd.index("-c:v"), "-t")
-                    cmd.insert(cmd.index("-c:v"), str(int(remaining)))
-                else:
-                    return False
-
             with self.lock:
                 self.proc = subprocess.Popen(
                     cmd,
@@ -121,14 +95,6 @@ class RecordingThread(threading.Thread):
                 if return_code is not None:
                     with self.lock:
                         self.proc = None
-
-                    if return_code == 0:
-                        if self.max_duration and (time.time() - self.start_time) >= self.max_duration:
-                            return False
-                    return False
-
-                if self.max_duration and (time.time() - self.start_time) >= self.max_duration:
-                    self._stop_ffmpeg()
                     return False
 
                 time.sleep(0.5)
@@ -173,8 +139,7 @@ class RecordingThread(threading.Thread):
             extension = os.path.splitext(self.file_path)[1] or '.mkv'
             segments = []
 
-            # Calculate max possible segments (with some buffer)
-            max_segments = (self.max_duration // self.segment_duration + 2) if self.max_duration else 20
+            max_segments = 100
 
             for i in range(max_segments):
                 segment = f"{base_name}_{i:03d}{extension}"
@@ -184,13 +149,15 @@ class RecordingThread(threading.Thread):
                     break
 
             if not segments:
+                print(f"No segments found for {self.file_path}")
                 return
 
             if len(segments) == 1:
                 os.rename(segments[0], self.file_path)
+                print(f"Renamed single segment to {self.file_path}")
                 return
 
-            concat_list = os.path.join(os.path.dirname(self.file_path), f".concat_{os.getpid()}.txt")
+            concat_list = os.path.join(os.path.dirname(self.file_path), f".concat_{os.getpid()}_{time.time()}.txt")
             with open(concat_list, 'w') as f:
                 for segment in segments:
                     f.write(f"file '{os.path.abspath(segment)}'\n")
@@ -202,18 +169,21 @@ class RecordingThread(threading.Thread):
                 "-safe", "0",
                 "-i", concat_list,
                 "-c", "copy",
-                "-loglevel", "warning",
+                "-loglevel", "error",
                 self.file_path
             ]
 
-            result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             if result.returncode == 0:
+                print(f"Successfully merged {len(segments)} segments into {self.file_path}")
                 for segment in segments:
                     try:
                         os.remove(segment)
-                    except:
-                        pass
+                    except Exception as e:
+                        print(f"Error removing segment {segment}: {e}")
+            else:
+                print(f"Error merging segments for {self.file_path}: {result.stderr.decode()}")
 
             try:
                 os.remove(concat_list)
@@ -221,12 +191,8 @@ class RecordingThread(threading.Thread):
                 pass
 
         except Exception as e:
-            print(f"Error merging segments: {e}")
+            print(f"Error merging segments for {self.file_path}: {e}")
 
     def stop(self):
-        if self.running is not None:
-            self.running = False
-            self._stop_ffmpeg()
-            while self.running is not None:
-                time.sleep(0.1)
-            # Don't merge here since it's already done in the run method's finally block
+        self.running = False
+        self._stop_ffmpeg()

@@ -36,7 +36,7 @@ class RecordingRouter(RouterWrapper):
             return self.recording_service.delete_by_id(rec_id)
 
         @self.router.delete("/")
-        async def delete_recording_by_id(request: Request) -> Sequence[Recording]:
+        async def delete_recordings(request: Request) -> Sequence[Recording]:
             token = request.headers.get("Authorization")
             user = await self.auth_client.get_authenticated_user(token)
             if user is None or "ACCESS_RECORDINGS" not in user.permissions:

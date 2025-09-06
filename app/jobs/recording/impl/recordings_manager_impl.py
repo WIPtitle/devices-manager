@@ -1,7 +1,6 @@
 import glob
 import os
-from threading import Lock
-import time
+from threading import Lock, Event
 
 from app.jobs.recording.impl.recording_thread import RecordingThread
 from app.jobs.recording.recordings_manager import RecordingsManager
@@ -9,6 +8,7 @@ from app.models.disk_usage import DiskUsage
 from app.models.recording import Recording, get_recordings_path, RecordingInputDto
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.recording.recording_repository import RecordingRepository
+from app.utils.delayed_execution import delay_execution
 
 
 def delete_file(file_path):
@@ -31,36 +31,26 @@ class RecordingsManagerImpl(RecordingsManager):
     def __init__(self, camera_repository: CameraRepository, recording_repository: RecordingRepository):
         self.camera_repository = camera_repository
         self.recording_repository = recording_repository
-        self.threads = []
-        self.threads_lock = Lock()
-        self.stopped_recordings = set()
-        self.persistent_recordings = {}
+        self.active_recordings = {}
+        self.active_threads = {}
+        self.lock = Lock()
 
-        # Read alarm recording duration from environment (default 120 seconds = 2 minutes)
         self.alarm_recording_duration = int(os.getenv('ALARM_RECORDING_DURATION_SECONDS', '120'))
+        self.always_recording_duration = int(os.getenv('ALWAYS_RECORDING_DURATION_SECONDS', '3600'))
 
     def is_recording(self, camera_ip: str):
-        with self.threads_lock:
-            self.threads = [t for t in self.threads if t.is_alive()]
-            return any(t.recording.camera_ip == camera_ip and t.recording.id not in self.stopped_recordings for t in
-                       self.threads)
+        with self.lock:
+            return camera_ip in self.active_recordings
 
     def start_recording(self, recording: Recording):
-        with self.threads_lock:
-            if recording.id in self.stopped_recordings:
-                return
+        camera = self.camera_repository.find_by_ip(recording.camera_ip)
 
-            active_thread = None
-            for t in self.threads:
-                if t.recording.camera_ip == recording.camera_ip and t.is_alive() and t.recording.id not in self.stopped_recordings:
-                    active_thread = t
-                    break
-
-            if active_thread:
+        with self.lock:
+            if recording.camera_ip in self.active_recordings:
                 print(f"Already recording for {recording.camera_ip}, skipping.")
                 return
 
-        camera = self.camera_repository.find_by_ip(recording.camera_ip)
+            self.active_recordings[recording.camera_ip] = recording
 
         usage = DiskUsage.from_path(get_recordings_path())
         threshold = 0.10
@@ -78,32 +68,78 @@ class RecordingsManagerImpl(RecordingsManager):
             else:
                 break
 
-        with self.threads_lock:
-            self.threads = [t for t in self.threads if t.is_alive() or t.recording.id not in self.stopped_recordings]
+        if camera.always_recording:
+            duration = self.always_recording_duration
+            segment_duration = duration // 10
+            delay_execution(
+                func=self.stop_and_rotate_always_recording,
+                args=(recording,),
+                delay_seconds=duration
+            )
+        else:
+            duration = self.alarm_recording_duration
+            segment_duration = duration // 10
 
-            thread = RecordingThread(camera, recording, self.thread_error_callback)
-            thread.start()
-            self.threads.append(thread)
+        thread = RecordingThread(camera, recording, segment_duration, self.on_recording_completed)
+        thread.start()
 
-            if camera.always_recording:
-                self.persistent_recordings[recording.camera_ip] = recording
+        with self.lock:
+            self.active_threads[recording.camera_ip] = thread
 
-            print(f"Start recording for camera on {recording.camera_ip}")
+        print(f"Start recording for camera on {recording.camera_ip}")
 
     def stop_recording(self, recording: Recording):
-        with self.threads_lock:
-            self.stopped_recordings.add(recording.id)
+        with self.lock:
+            if recording.camera_ip in self.active_recordings:
+                del self.active_recordings[recording.camera_ip]
+            thread = self.active_threads.get(recording.camera_ip)
+            if thread:
+                del self.active_threads[recording.camera_ip]
 
-            if recording.camera_ip in self.persistent_recordings:
-                if self.persistent_recordings[recording.camera_ip].id == recording.id:
-                    del self.persistent_recordings[recording.camera_ip]
-
-            for thread in self.threads:
-                if thread.recording.id == recording.id:
-                    thread.stop()
-                    break
+        if thread:
+            thread.stop()
+            thread.join(timeout=30)
 
         print(f"Stopped recording for camera on {recording.camera_ip}")
+
+    def stop_by_camera_ip(self, camera_ip: str):
+        with self.lock:
+            recording = self.active_recordings.get(camera_ip)
+            if recording:
+                del self.active_recordings[camera_ip]
+            thread = self.active_threads.get(camera_ip)
+            if thread:
+                del self.active_threads[camera_ip]
+
+        if thread:
+            thread.stop()
+            thread.join(timeout=30)
+
+        return recording
+
+    def stop_and_rotate_always_recording(self, recording: Recording):
+        camera = self.camera_repository.find_by_ip(recording.camera_ip)
+
+        with self.lock:
+            if recording.camera_ip not in self.active_recordings:
+                return
+            if self.active_recordings[recording.camera_ip].id != recording.id:
+                return
+
+        self.stop_recording(recording)
+
+        if camera.always_recording:
+            try:
+                new_recording = self.recording_repository.create(
+                    Recording.from_dto(RecordingInputDto(
+                        camera_ip=camera.ip,
+                        always_recording=True
+                    ))
+                )
+                self.start_recording(new_recording)
+                print(f"Rotated to new recording {new_recording.id} for always-on camera {recording.camera_ip}")
+            except Exception as e:
+                print(f"Error rotating recording for {recording.camera_ip}: {e}")
 
     def delete_recording_file(self, recording: Recording):
         file_path = os.path.join(recording.path, recording.name)
@@ -121,83 +157,22 @@ class RecordingsManagerImpl(RecordingsManager):
                 break
 
     def get_current_recording_by_camera_ip(self, camera_ip: str):
-        with self.threads_lock:
-            for thread in self.threads:
-                if thread.recording.camera_ip == camera_ip and thread.is_alive() and thread.recording.id not in self.stopped_recordings:
-                    return thread.recording
-        return None
+        with self.lock:
+            return self.active_recordings.get(camera_ip)
 
-    def thread_error_callback(self, recording: Recording):
-        if recording.id in self.stopped_recordings:
-            return
-
+    def on_recording_completed(self, recording: Recording):
         print(f"Thread completed for recording {recording.id} on camera {recording.camera_ip}")
 
-        time.sleep(2)
-
-        with self.threads_lock:
-            if recording.id in self.stopped_recordings:
-                return
-
-            self.threads = [t for t in self.threads if t.recording.id != recording.id or t.is_alive()]
-
-            camera = self.camera_repository.find_by_ip(recording.camera_ip)
-
-            if camera.always_recording:
-                if recording.camera_ip not in self.persistent_recordings or self.persistent_recordings[
-                    recording.camera_ip].id == recording.id:
-                    try:
-                        self.recording_repository.set_stopped(recording)
-                        print(
-                            f"Marked recording {recording.id} as completed for always-on camera {recording.camera_ip}")
-
-                        new_recording = self.recording_repository.create(
-                            Recording.from_dto(RecordingInputDto(
-                                camera_ip=camera.ip,
-                                always_recording=True
-                            ))
-                        )
-                        self.start_recording(new_recording)
-                        print(f"Started new recording {new_recording.id} for always-on camera {recording.camera_ip}")
-                    except Exception as e:
-                        print(f"Error rotating recording for {recording.camera_ip}: {e}")
-                return
-
-            if not self._should_continue_alarm(recording):
-                return
-
-            active_for_camera = any(
-                t.recording.camera_ip == recording.camera_ip and
-                t.is_alive() and
-                t.recording.id not in self.stopped_recordings
-                for t in self.threads
-            )
-
-            if active_for_camera:
-                return
+        with self.lock:
+            if recording.camera_ip in self.active_recordings:
+                if self.active_recordings[recording.camera_ip].id == recording.id:
+                    del self.active_recordings[recording.camera_ip]
+            if recording.camera_ip in self.active_threads:
+                if self.active_threads[recording.camera_ip].recording.id == recording.id:
+                    del self.active_threads[recording.camera_ip]
 
         try:
-            if self._should_continue_alarm(recording):
-                new_recording = self.recording_repository.create(
-                    Recording.from_dto(RecordingInputDto(
-                        camera_ip=camera.ip,
-                        always_recording=False
-                    ))
-                )
-                self.start_recording(new_recording)
+            self.recording_repository.set_stopped(recording)
+            print(f"Marked recording {recording.id} as completed for camera {recording.camera_ip}")
         except Exception as e:
-            print(f"Error restarting alarm recording for {recording.camera_ip}: {e}")
-
-    def _should_continue_alarm(self, recording: Recording):
-        if not recording.always_recording:
-            created_time = recording.created_at if hasattr(recording, 'created_at') else 0
-            if isinstance(created_time, str):
-                try:
-                    import datetime
-                    created_time = datetime.datetime.fromisoformat(created_time).timestamp()
-                except:
-                    created_time = 0
-            elapsed = time.time() - created_time
-            # Use the configured alarm recording duration
-            return elapsed < self.alarm_recording_duration
-        return False
+            print(f"Error marking recording {recording.id} as completed: {e}")
