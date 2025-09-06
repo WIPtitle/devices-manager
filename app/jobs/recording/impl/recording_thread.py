@@ -60,6 +60,14 @@ class RecordingThread(threading.Thread):
             extension = os.path.splitext(self.file_path)[1] or '.mkv'
             segment_path = f"{base_name}_%03d{extension}"
 
+            existing_segments = 0
+            for i in range(100):
+                segment = f"{base_name}_{i:03d}{extension}"
+                if os.path.exists(segment):
+                    existing_segments += 1
+                else:
+                    break
+
             cmd = [
                 "ffmpeg",
                 "-y",
@@ -84,7 +92,7 @@ class RecordingThread(threading.Thread):
                 "-reset_timestamps", "1",
                 "-break_non_keyframes", "1",
                 "-strftime", "0",
-                "-segment_start_number", "0",
+                "-segment_start_number", str(existing_segments),
                 "-avoid_negative_ts", "make_zero",
                 "-loglevel", "warning",
                 segment_path
