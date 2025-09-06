@@ -67,7 +67,7 @@ class CameraRouter(RouterWrapper):
             if token is None and request.query_params.get("auth_token") is not None:
                 token = "Bearer " + request.query_params.get("auth_token")
             user = await self.auth_client.get_authenticated_user(token)
-            if user is None or "MODIFY_DEVICES" not in user.permissions:
+            if user is None or "ACCESS_RECORDINGS" not in user.permissions:
                 raise AuthorizationException("Not authorized")
 
             camera = self.camera_service.get_by_ip(ip)
