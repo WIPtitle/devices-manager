@@ -59,7 +59,10 @@ class SensorServiceImpl(SensorService):
             raise BadRequestException("Can't delete while listening")
 
         sensor = self.sensor_repository.delete_by_id(sensor_id)
-        self.sensors_listener.remove_sensor(sensor)
+        try:
+            self.sensors_listener.remove_sensor(sensor)
+        except Exception as e:
+            print(f"Warning: Could not remove sensor {sensor_id} from listener: {e}")
         return sensor
 
     def get_all(self) -> Sequence[Sensor]:
