@@ -1,11 +1,11 @@
-import os
-import json
-import httpx
 import asyncio
-import threading
-from typing import Dict, Callable, Optional
-from dataclasses import dataclass
+import json
 import logging
+import threading
+from dataclasses import dataclass
+from typing import Dict, Callable, Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +102,8 @@ class GpioMonitorClient:
             state = data.get("state")
 
             if pin is not None and state is not None:
-                # Only trigger callback if pin is monitored
-                if pin in self.callbacks and pin in self.monitored_pins:
+                # Check if pin is in callbacks (registered sensors)
+                if pin in self.callbacks:
                     callback = self.callbacks[pin]
                     # Run callback in a thread to avoid blocking
                     threading.Thread(target=callback, args=(pin, state)).start()
@@ -121,11 +121,25 @@ class GpioMonitorClient:
     def register_callback(self, pin: int, callback: Callable[[int, int], None]):
         """Register a callback for pin state changes"""
         self.callbacks[pin] = callback
+        # When registering a callback, also update monitored pins
+        self._update_monitored_pins()
 
     def unregister_callback(self, pin: int):
         """Unregister a callback for a pin"""
         if pin in self.callbacks:
             del self.callbacks[pin]
+
+    def _update_monitored_pins(self):
+        """Update the list of monitored pins from the server"""
+        try:
+            response = httpx.get(f"{self.gpio_monitor_url}/api/pins")
+            response.raise_for_status()
+            data = response.json()
+            monitored = data.get("monitored", [])
+            self.monitored_pins = set(monitored)
+            logger.debug(f"Updated monitored pins: {monitored}")
+        except Exception as e:
+            logger.error(f"Failed to update monitored pins: {e}")
 
     def is_pin_monitored(self, pin: int) -> bool:
         """Check if a pin is being monitored by the GPIO Monitor"""
@@ -134,6 +148,8 @@ class GpioMonitorClient:
             response.raise_for_status()
             data = response.json()
             monitored = data.get("monitored", [])
+            # Update our local cache while we're at it
+            self.monitored_pins = set(monitored)
             return pin in monitored
         except Exception as e:
             logger.error(f"Failed to check if pin {pin} is monitored: {e}")
@@ -161,7 +177,11 @@ class GpioMonitorClient:
         try:
             response = httpx.get(f"{self.gpio_monitor_url}/api/pins")
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            # Update monitored pins cache
+            monitored = data.get("monitored", [])
+            self.monitored_pins = set(monitored)
+            return data
         except Exception as e:
             logger.error(f"Failed to get pins info: {e}")
             raise
