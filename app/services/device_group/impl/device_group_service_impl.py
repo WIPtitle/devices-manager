@@ -36,6 +36,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
             event_manager.publish_device_group_event_sync(group.id, group.status.value)
 
     def create_device_group(self, device_group: DeviceGroup) -> DeviceGroup:
+        if device_group.wait_to_fire_alarm > 120:
+            raise BadRequestException("wait_to_fire_alarm can't be greater than 120 seconds")
+        if device_group.wait_to_start_alarm > 120:
+            raise BadRequestException("wait_to_start_alarm can't be greater than 120 seconds")
         group = self.device_group_repository.create_device_group(device_group)
         # Publish initial state for new group
         event_manager.publish_device_group_event_sync(group.id, group.status.value)
