@@ -1,10 +1,7 @@
 import asyncio
-import time
 from typing import Sequence
 
-from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
-from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
-
+from app.clients.alarm_events_client import AlarmEventsClient
 from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.models.device_group import DeviceGroup
@@ -24,12 +21,12 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                  camera_repository: CameraRepository,
                  sensor_repository: SensorRepository,
                  alarm_manager: AlarmManager,
-                 rabbitmq_client: RabbitMQClient):
+                 alarm_events_client: AlarmEventsClient):
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
         self.sensor_repository = sensor_repository
         self.alarm_manager = alarm_manager
-        self.rabbitmq_client = rabbitmq_client
+        self.alarm_events_client = alarm_events_client
 
         # Publish initial state for all existing groups
         for group in self.device_group_repository.find_all_devices_groups():
@@ -109,8 +106,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         if not self.device_group_repository.are_all_groups_idle():
             raise BadRequestException("Not all groups are idle, can't start listening")
 
-        while not self.rabbitmq_client.publish(AlarmWaiting(True, int(time.time()))):
-            time.sleep(1)
+        self.alarm_events_client.notify_alarm_waiting(started=True)
         delay_execution(func=self.do_start_listening, args=(group_id,), delay_seconds=group.wait_to_start_alarm)
 
         group.status = DeviceGroupStatus.WAITING_TO_START_LISTENING
@@ -140,8 +136,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         for sensor in sensors:
             self.sensor_repository.update_listening(sensor, True)
 
-        while not self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))):
-            time.sleep(1)
+        self.alarm_events_client.notify_alarm_waiting(started=False)
 
     def do_stop_listening(self, group_id: int):
         sensors = self.get_device_group_sensors_by_id(group_id)

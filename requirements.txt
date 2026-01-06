@@ -1,7 +1,4 @@
-# SDKs
-git+https://github.com/WIPtitle/rabbitmq-sdk.git
-
-# Other deps
+# Deps
 fastapi==0.112.2
 uvicorn==0.30.6
 psycopg2==2.9.9

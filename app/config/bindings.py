@@ -4,10 +4,8 @@ from functools import wraps
 from typing import Callable, get_type_hints, List, Tuple
 
 from app.repositories.sensor.impl.sensor_repository_impl import SensorRepositoryImpl
-from rabbitmq_sdk.client.impl.rabbitmq_client_impl import RabbitMQClientImpl
-from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
-from rabbitmq_sdk.enums.service import Service
 
+from app.clients.alarm_events_client import AlarmEventsClient
 from app.clients.auth_client import AuthClient
 from app.clients.gpio_monitor_client import GpioMonitorClient
 from app.database.database_connector import DatabaseConnector
@@ -34,7 +32,6 @@ from app.services.recording.impl.recording_service_impl import RecordingServiceI
 from app.services.recording.recording_service import RecordingService
 from app.services.sensor.impl.sensor_service_impl import SensorServiceImpl
 from app.services.sensor.sensor_service import SensorService
-from app.utils.read_credentials import read_credentials
 from app.utils.event_manager import event_manager, EventManager
 
 logging.basicConfig(
@@ -46,13 +43,7 @@ bindings = {}
 
 database_connector = DatabaseConnectorImpl()
 
-rabbit_credentials = read_credentials(os.getenv('RBBT_CREDENTIALS_FILE'))
-rabbitmq_client = RabbitMQClientImpl.from_config(
-    host=os.getenv("RABBITMQ_HOSTNAME"),
-    port=5672,
-    username=rabbit_credentials['RABBITMQ_USER'],
-    password=rabbit_credentials['RABBITMQ_PASSWORD']
-).with_current_service(Service.DEVICES_MANAGER)
+alarm_events_client = AlarmEventsClient()
 
 gpio_urls = os.getenv("GPIO_MONITOR_URLS", "http://localhost:8787")
 gpio_monitor_urls = [url.strip() for url in gpio_urls.split(",")]
@@ -72,16 +63,16 @@ device_group_repository = DeviceGroupRepositoryImpl(database_connector=database_
 
 recording_manager = RecordingsManagerImpl(camera_repository, recording_repository)
 recording_service = RecordingServiceImpl(recording_repository=recording_repository, camera_repository=camera_repository, recording_manager=recording_manager)
-alarm_manager = AlarmManagerImpl(rabbitmq_client, recording_service, device_group_repository, camera_repository, sensor_repository)
+alarm_manager = AlarmManagerImpl(alarm_events_client, recording_service, device_group_repository, camera_repository, sensor_repository)
 
 sensors_listener = SensorsListenerImpl(alarm_manager, sensor_repository, gpio_monitor_clients)
 
-device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, sensor_repository, alarm_manager, rabbitmq_client)
+device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, sensor_repository, alarm_manager, alarm_events_client)
 sensor_service = SensorServiceImpl(sensor_repository=sensor_repository, sensors_listener=sensors_listener)
 camera_service = CameraServiceImpl(camera_repository=camera_repository, recording_service=recording_service)
 
 bindings[DatabaseConnector] = database_connector
-bindings[RabbitMQClient] = rabbitmq_client
+bindings[AlarmEventsClient] = alarm_events_client
 bindings['gpio_monitor_clients'] = gpio_monitor_clients
 
 bindings[CameraRepository] = camera_repository

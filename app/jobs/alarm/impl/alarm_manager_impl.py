@@ -1,12 +1,6 @@
 import os
-import time
 
-from rabbitmq_sdk.client.rabbitmq_client import RabbitMQClient
-from rabbitmq_sdk.event.base_event import BaseEvent
-from rabbitmq_sdk.event.impl.devices_manager.alarm_stopped import AlarmStopped
-from rabbitmq_sdk.event.impl.devices_manager.sensor_alarm import SensorAlarm
-from rabbitmq_sdk.event.impl.devices_manager.alarm_waiting import AlarmWaiting
-
+from app.clients.alarm_events_client import AlarmEventsClient
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.recording import Recording, RecordingInputDto
@@ -20,12 +14,12 @@ from app.utils.event_manager import event_manager
 
 class AlarmManagerImpl(AlarmManager):
     def __init__(self,
-                 rabbitmq_client: RabbitMQClient,
+                 alarm_events_client: AlarmEventsClient,
                  recording_service: RecordingService,
                  device_group_repository: DeviceGroupRepository,
                  camera_repository: CameraRepository,
                  sensor_repository: SensorRepository):
-        self.rabbitmq_client = rabbitmq_client
+        self.alarm_events_client = alarm_events_client
         self.recording_service = recording_service
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
@@ -39,19 +33,17 @@ class AlarmManagerImpl(AlarmManager):
         """Called when any sensor is triggered (goes HIGH)"""
         sensor = self.sensor_repository.find_by_id(sensor_id)
         group = self.device_group_repository.find_listening_device_group()
-        current_time = time.time()
 
         # If not already in alarm and sensor goes HIGH, trigger alarm immediately
         if not self.alarm and group and group.status == DeviceGroupStatus.LISTENING:
             self.alarm = True
-            while not self.rabbitmq_client.publish(AlarmWaiting(True, int(current_time))):
-                time.sleep(1)
+            self.alarm_events_client.notify_alarm_waiting(started=True)
             delay_execution(
                 func=self.trigger_alarm,
-                args=(SensorAlarm(sensor.name, int(current_time)), group.id),
+                args=(sensor.name, group.id),
                 delay_seconds=group.wait_to_fire_alarm)
 
-    def trigger_alarm(self, event: BaseEvent, group_id: int):
+    def trigger_alarm(self, sensor_name: str, group_id: int):
         """Trigger the alarm after the delay"""
         # Find listening group and set it to alarm
         group = self.device_group_repository.find_device_group_by_id(group_id)
@@ -66,16 +58,14 @@ class AlarmManagerImpl(AlarmManager):
         # Publish status change event
         event_manager.publish_device_group_event_sync(group_id, DeviceGroupStatus.ALARM.value)
 
-        while not self.rabbitmq_client.publish(AlarmWaiting(False, int(time.time()))):
-            time.sleep(1)
+        self.alarm_events_client.notify_alarm_waiting(started=False)
 
         # After the configured alarm duration, stop audio and recordings
         delay_execution(
             func=self.stop_alarm,
             delay_seconds=self.alarm_recording_duration)
 
-        while not self.rabbitmq_client.publish(event):
-            time.sleep(1)
+        self.alarm_events_client.notify_sensor_alarm(sensor_name)
 
         # Start recording for cameras that are not always recording
         for camera in self.camera_repository.find_all():
@@ -86,8 +76,7 @@ class AlarmManagerImpl(AlarmManager):
     def stop_alarm(self):
         """Stop the alarm"""
         if self.alarm:
-            while not self.rabbitmq_client.publish(AlarmStopped(int(time.time()))):
-                time.sleep(1)
+            self.alarm_events_client.notify_alarm_stopped()
 
             for camera in self.camera_repository.find_all():
                 if not camera.always_recording:
