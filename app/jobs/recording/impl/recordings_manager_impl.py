@@ -1,11 +1,13 @@
 import glob
 import os
+import re
+import threading
 from threading import Lock, Event
 
 from app.jobs.recording.impl.recording_thread import RecordingThread
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.models.disk_usage import DiskUsage
-from app.models.recording import Recording, get_recordings_path, RecordingInputDto
+from app.models.recording import Recording, get_recordings_path, get_alarm_recordings_path, RecordingInputDto
 from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.recording.recording_repository import RecordingRepository
 from app.utils.delayed_execution import delay_execution
@@ -34,9 +36,15 @@ class RecordingsManagerImpl(RecordingsManager):
         self.active_recordings = {}
         self.active_threads = {}
         self.lock = Lock()
+        self._cleanup_lock = Lock()
+        self._scheduler_stop_event = threading.Event()
+        self._scheduler_thread = None
 
         self.alarm_recording_duration = int(os.getenv('ALARM_RECORDING_DURATION_SECONDS', '120'))
         self.always_recording_duration = int(os.getenv('ALWAYS_RECORDING_DURATION_SECONDS', '3600'))
+        self.cleanup_interval_seconds = int(os.getenv('CLEANUP_INTERVAL_SECONDS', '3600'))  # Default 1 hour
+
+        self._start_cleanup_scheduler()
 
     def is_recording(self, camera_ip: str):
         with self.lock:
@@ -176,3 +184,82 @@ class RecordingsManagerImpl(RecordingsManager):
             print(f"Marked recording {recording.id} as completed for camera {recording.camera_ip}")
         except Exception as e:
             print(f"Error marking recording {recording.id} as completed: {e}")
+
+    def trigger_orphan_files_cleanup(self):
+        """Trigger async cleanup of orphan recording files."""
+        threading.Thread(target=self._cleanup_orphan_files, daemon=True).start()
+
+    def _start_cleanup_scheduler(self):
+        """Start the hourly cleanup scheduler."""
+        def scheduler_loop():
+            print(f"Orphan files cleanup scheduler started (interval: {self.cleanup_interval_seconds}s)")
+            while not self._scheduler_stop_event.is_set():
+                self._scheduler_stop_event.wait(self.cleanup_interval_seconds)
+                if not self._scheduler_stop_event.is_set():
+                    print("Running scheduled orphan files cleanup...")
+                    self._cleanup_orphan_files()
+
+        self._scheduler_thread = threading.Thread(target=scheduler_loop, daemon=True)
+        self._scheduler_thread.start()
+
+    def _cleanup_orphan_files(self):
+        """Delete recording files that don't have a corresponding DB entry."""
+        with self._cleanup_lock:
+            print("Starting orphan files cleanup...")
+            deleted_count = 0
+
+            # Get all recording names from DB
+            try:
+                db_recordings = self.recording_repository.find_all()
+                db_recording_names = {rec.name for rec in db_recordings if rec.name}
+            except Exception as e:
+                print(f"Error fetching recordings from DB: {e}")
+                return
+
+            # Get currently active recording names (don't delete files being recorded)
+            with self.lock:
+                active_names = {rec.name for rec in self.active_recordings.values() if rec.name}
+
+            # Check both recording directories
+            for recordings_path in [get_recordings_path(), get_alarm_recordings_path()]:
+                if not os.path.exists(recordings_path):
+                    continue
+
+                try:
+                    files = os.listdir(recordings_path)
+                except Exception as e:
+                    print(f"Error listing directory {recordings_path}: {e}")
+                    continue
+
+                for filename in files:
+                    # Skip temporary files
+                    if filename.startswith('.concat_'):
+                        continue
+
+                    # Extract base name (handle segments like file_000.mkv, file_001.mkv)
+                    base_name = self._get_base_recording_name(filename)
+
+                    # Skip if this file belongs to an active recording
+                    if base_name in active_names or filename in active_names:
+                        continue
+
+                    # Delete if no corresponding DB entry exists
+                    if base_name not in db_recording_names and filename not in db_recording_names:
+                        file_path = os.path.join(recordings_path, filename)
+                        try:
+                            os.remove(file_path)
+                            deleted_count += 1
+                            print(f"Deleted orphan file: {file_path}")
+                        except Exception as e:
+                            print(f"Error deleting orphan file {file_path}: {e}")
+
+            print(f"Orphan files cleanup completed. Deleted {deleted_count} files.")
+
+    def _get_base_recording_name(self, filename: str) -> str:
+        """Extract base recording name from filename (handles segments like file_000.mkv)."""
+        # Match pattern like: 2024_01_01_12_00_00_192.168.1.1_000.mkv
+        segment_pattern = r'^(.+)_\d{3}(\.[^.]+)$'
+        match = re.match(segment_pattern, filename)
+        if match:
+            return f"{match.group(1)}{match.group(2)}"
+        return filename

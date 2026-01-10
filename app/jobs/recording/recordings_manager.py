@@ -23,3 +23,8 @@ class RecordingsManager:
     @abstractmethod
     def get_current_recording_by_camera_ip(self, camera_ip: str):
         pass
+
+    @abstractmethod
+    def trigger_orphan_files_cleanup(self):
+        """Trigger async cleanup of recording files without corresponding DB entries."""
+        pass
