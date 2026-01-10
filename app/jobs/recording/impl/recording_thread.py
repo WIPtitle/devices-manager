@@ -71,29 +71,29 @@ class RecordingThread(threading.Thread):
             cmd = [
                 "ffmpeg",
                 "-y",
-                "-use_wallclock_as_timestamps", "1",
+                # Input options
                 "-rtsp_transport", "tcp",
+                "-rtsp_flags", "prefer_tcp",
+                "-stimeout", "5000000",  # 5 sec timeout for RTSP operations
+                "-thread_queue_size", "1024",  # Buffer for input packets
+                "-analyzeduration", "5M",
+                "-probesize", "5M",
+                "-fflags", "+genpts+discardcorrupt",  # Generate PTS, discard corrupt frames
                 "-i", input_url,
-                "-fflags", "+genpts+igndts+ignidx+discardcorrupt",
-                "-analyzeduration", "10M",
-                "-probesize", "10M",
-                "-max_delay", "0",
-                "-reorder_queue_size", "0",
+                # Output options
                 "-c:v", "copy",
                 "-c:a", "copy",
-                "-vsync", "cfr",
+                "-map", "0",
                 "-f", "segment",
                 "-segment_time", str(self.segment_duration),
                 "-segment_format", "matroska",
-                "-segment_time_delta", "0.1",
-                "-segment_atclocktime", "1",
-                "-segment_clocktime_offset", "0",
-                "-segment_clocktime_wrap_duration", "86400",
+                "-segment_time_delta", "0.5",
                 "-reset_timestamps", "1",
-                "-break_non_keyframes", "1",
-                "-strftime", "0",
                 "-segment_start_number", str(existing_segments),
                 "-avoid_negative_ts", "make_zero",
+                # MKV options for better resilience
+                "-cluster_size_limit", "2M",  # Smaller clusters = more recovery points
+                "-cluster_time_limit", "5000",  # Max 5 sec per cluster
                 "-loglevel", "warning",
                 segment_path
             ]
