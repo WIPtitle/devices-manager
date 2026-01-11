@@ -74,7 +74,7 @@ class RecordingThread(threading.Thread):
                 # Input options
                 "-rtsp_transport", "tcp",
                 "-rtsp_flags", "prefer_tcp",
-                "-stimeout", "5000000",  # 5 sec timeout for RTSP operations
+                "-timeout", "5000000",  # 5 sec timeout for RTSP operations
                 "-thread_queue_size", "1024",  # Buffer for input packets
                 "-analyzeduration", "5M",
                 "-probesize", "5M",
