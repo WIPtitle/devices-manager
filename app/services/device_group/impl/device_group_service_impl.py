@@ -133,15 +133,13 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         event_manager.publish_device_group_event_sync(group_id, DeviceGroupStatus.LISTENING.value)
 
         sensors = self.get_device_group_sensors_by_id(group_id)
-        for sensor in sensors:
-            self.sensor_repository.update_listening(sensor, True)
+        self.sensor_repository.update_listening_batch(sensors, True)
 
         self.alarm_events_client.notify_alarm_waiting(started=False)
 
     def do_stop_listening(self, group_id: int):
         sensors = self.get_device_group_sensors_by_id(group_id)
-        for sensor in sensors:
-            self.sensor_repository.update_listening(sensor, False)
+        self.sensor_repository.update_listening_batch(sensors, False)
 
         self.alarm_manager.stop_alarm()
 

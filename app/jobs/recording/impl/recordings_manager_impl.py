@@ -20,15 +20,6 @@ def delete_file(file_path):
     return None
 
 
-def get_oldest_file():
-    files = glob.glob(os.path.join(get_recordings_path(), '*'))
-    files = [f for f in files if not f.startswith('.concat_')]
-    if files:
-        oldest_file = min(files, key=os.path.getctime)
-        return oldest_file
-    return None
-
-
 class RecordingsManagerImpl(RecordingsManager):
     def __init__(self, camera_repository: CameraRepository, recording_repository: RecordingRepository):
         self.camera_repository = camera_repository
@@ -63,15 +54,11 @@ class RecordingsManagerImpl(RecordingsManager):
         usage = DiskUsage.from_path(get_recordings_path())
         threshold = 0.10
         while usage.free / usage.total < threshold:
-            oldest_file = get_oldest_file()
-            if oldest_file is not None:
-                deleted_filename = delete_file(oldest_file)
-                try:
-                    rec = self.recording_repository.find_by_name(deleted_filename)
-                    if rec:
-                        self.recording_repository.delete_by_id(rec.id)
-                except:
-                    pass
+            oldest_recording = self.recording_repository.find_and_delete_oldest_completed()
+            if oldest_recording is not None:
+                file_path = os.path.join(oldest_recording.path, oldest_recording.name)
+                delete_file(file_path)
+                self.trigger_orphan_files_cleanup()
                 usage = DiskUsage.from_path(get_recordings_path())
             else:
                 break

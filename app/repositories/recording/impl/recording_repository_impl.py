@@ -96,3 +96,35 @@ class RecordingRepositoryImpl(RecordingRepository):
         result = session.exec(statement).all()
         session.close()
         return result
+
+
+    def delete_all_completed(self) -> Sequence[Recording]:
+        session = self.database_connector.get_new_session()
+        # First get all completed recordings to return them
+        statement = select(Recording).where(Recording.is_completed == True)
+        completed_recordings = list(session.exec(statement).all())
+        # Delete all in one transaction
+        for recording in completed_recordings:
+            session.delete(recording)
+        session.commit()
+        session.close()
+        return completed_recordings
+
+
+    def find_and_delete_oldest_completed(self) -> Recording | None:
+        session = self.database_connector.get_new_session()
+        # Find oldest completed recording (lowest id = oldest)
+        statement = (
+            select(Recording)
+            .where(Recording.is_completed == True)
+            .order_by(Recording.id.asc())
+            .limit(1)
+        )
+        recording = session.exec(statement).first()
+        if recording is None:
+            session.close()
+            return None
+        session.delete(recording)
+        session.commit()
+        session.close()
+        return recording

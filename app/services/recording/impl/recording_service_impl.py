@@ -55,17 +55,10 @@ class RecordingServiceImpl(RecordingService):
         return recording
 
     def delete_all(self) -> Sequence[Recording]:
-        recordings = self.recording_repository.find_all()
-        deleted_recordings = []
-        for recording in recordings:
-            # do not delete recordings that are still going on
-            if recording.is_completed:
-                self.recording_repository.delete_by_id(recording.id)
-                deleted_recordings.append(recording)
-        # Trigger async cleanup of orphan files once after all DB deletions
+        deleted_recordings = self.recording_repository.delete_all_completed()
         if deleted_recordings:
             self.recording_manager.trigger_orphan_files_cleanup()
-        return recordings
+        return deleted_recordings
 
     def get_all(self) -> Sequence[Recording]:
         return self.recording_repository.find_all()

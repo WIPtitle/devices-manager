@@ -33,3 +33,11 @@ class RecordingRepository(ABC):
     @abstractmethod
     def find_all_paginated(self, offset: int, recording_type: RecordingType) -> Sequence[Recording]:
         pass
+
+    @abstractmethod
+    def delete_all_completed(self) -> Sequence[Recording]:
+        pass
+
+    @abstractmethod
+    def find_and_delete_oldest_completed(self) -> Recording | None:
+        pass

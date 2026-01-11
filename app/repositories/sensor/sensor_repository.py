@@ -35,3 +35,7 @@ class SensorRepository(ABC):
     @abstractmethod
     def exists_by_server_and_pin(self, server_url: str, gpio_pin_number: int) -> bool:
         pass
+
+    @abstractmethod
+    def update_listening_batch(self, sensors: Sequence[Sensor], listening: bool) -> None:
+        pass

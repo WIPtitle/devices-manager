@@ -106,3 +106,15 @@ class SensorRepositoryImpl(SensorRepository):
         sensor_db = session.exec(statement).first()
         session.close()
         return sensor_db is not None
+
+    def update_listening_batch(self, sensors: Sequence[Sensor], listening: bool) -> None:
+        if not sensors:
+            return
+        sensor_ids = [s.id for s in sensors]
+        session = self.database_connector.get_new_session()
+        statement = select(Sensor).where(Sensor.id.in_(sensor_ids))
+        sensors_db = session.exec(statement).all()
+        for sensor_db in sensors_db:
+            sensor_db.listening = listening
+        session.commit()
+        session.close()
