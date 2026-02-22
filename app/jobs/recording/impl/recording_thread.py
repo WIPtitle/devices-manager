@@ -87,8 +87,6 @@ class RecordingThread(threading.Thread):
                 "-f", "segment",
                 "-segment_time", str(self.segment_duration),
                 "-segment_format", "matroska",
-                "-segment_time_delta", "0.5",
-                "-reset_timestamps", "1",
                 "-segment_start_number", str(existing_segments),
                 "-avoid_negative_ts", "make_zero",
                 # MKV options for better resilience
