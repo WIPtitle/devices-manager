@@ -1,7 +1,7 @@
-FROM python:3.10-slim
+FROM python:3.10
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev git ffmpeg libsm6 libxext6 curl \
+    ffmpeg libsm6 libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
