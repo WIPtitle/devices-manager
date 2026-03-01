@@ -23,8 +23,34 @@ class RecordingThread(threading.Thread):
         self.lock = threading.Lock()
         self.merge_completed = False
 
+        base_name = os.path.splitext(self.file_path)[0]
+        extension = os.path.splitext(self.file_path)[1] or '.mkv'
+
+        # Scan existing segments to initialize counters
+        existing = 0
+        for i in range(1000):
+            segment = f"{base_name}_{i:03d}{extension}"
+            if os.path.exists(segment):
+                existing = i + 1
+            else:
+                break
+
+        self._segment_counter = existing
+        self._next_merge_segment = 0
+        # Skip segments that were already merged (file exists as final but segments don't)
+        for i in range(existing):
+            segment = f"{base_name}_{i:03d}{extension}"
+            if not os.path.exists(segment):
+                self._next_merge_segment = i + 1
+            else:
+                break
+
     def run(self):
         self.running = True
+
+        # Start progressive merge daemon thread
+        merge_thread = threading.Thread(target=self._progressive_merge_loop, daemon=True)
+        merge_thread.start()
 
         try:
             while self.running:
@@ -43,7 +69,7 @@ class RecordingThread(threading.Thread):
                         time.sleep(min(self.retry_delay, self.max_retry_delay))
                         self.retry_delay = min(self.retry_delay * 2, self.max_retry_delay)
         finally:
-            self._merge_segments()
+            self._merge_remaining_segments()
             self.merge_completed = True
 
             if self.on_completion_callback:
@@ -51,6 +77,79 @@ class RecordingThread(threading.Thread):
                     self.on_completion_callback(self.recording)
                 except Exception as e:
                     print(f"Error calling recording completion callback: {e}")
+
+    def _progressive_merge_loop(self):
+        """Daemon thread that merges segments into the final file as they complete."""
+        while self.running:
+            try:
+                base_name = os.path.splitext(self.file_path)[0]
+                extension = os.path.splitext(self.file_path)[1] or '.mkv'
+
+                # A segment is complete when the next segment exists
+                current_segment = f"{base_name}_{self._next_merge_segment:03d}{extension}"
+                next_segment = f"{base_name}_{self._next_merge_segment + 1:03d}{extension}"
+
+                if os.path.exists(current_segment) and os.path.exists(next_segment):
+                    self._merge_single_segment(current_segment)
+            except Exception as e:
+                print(f"Error in progressive merge loop: {e}")
+
+            time.sleep(2)
+
+    def _merge_single_segment(self, segment_path):
+        """Merge a single segment into the final file."""
+        try:
+            if not os.path.exists(self.file_path):
+                # First segment: just rename it
+                os.rename(segment_path, self.file_path)
+                print(f"Progressive merge: renamed first segment to {self.file_path}")
+            else:
+                # Concat final file + segment → temp, then rename
+                temp_path = self.file_path + ".tmp.mkv"
+                concat_list = os.path.join(
+                    os.path.dirname(self.file_path),
+                    f".concat_{os.getpid()}_{time.time()}.txt"
+                )
+
+                with open(concat_list, 'w') as f:
+                    f.write(f"file '{os.path.abspath(self.file_path)}'\n")
+                    f.write(f"file '{os.path.abspath(segment_path)}'\n")
+
+                cmd = [
+                    "ffmpeg", "-y",
+                    "-f", "concat", "-safe", "0",
+                    "-i", concat_list,
+                    "-c", "copy",
+                    "-loglevel", "error",
+                    temp_path
+                ]
+
+                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                try:
+                    os.remove(concat_list)
+                except:
+                    pass
+
+                if result.returncode == 0:
+                    os.replace(temp_path, self.file_path)
+                    try:
+                        os.remove(segment_path)
+                    except Exception as e:
+                        print(f"Error removing merged segment {segment_path}: {e}")
+                    print(f"Progressive merge: appended segment {os.path.basename(segment_path)}")
+                else:
+                    print(f"Progressive merge failed for {segment_path}: {result.stderr.decode()}")
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
+                    return
+
+            self._next_merge_segment += 1
+
+        except Exception as e:
+            print(f"Error in _merge_single_segment: {e}")
 
     def _run_ffmpeg(self):
         try:
@@ -60,13 +159,7 @@ class RecordingThread(threading.Thread):
             extension = os.path.splitext(self.file_path)[1] or '.mkv'
             segment_path = f"{base_name}_%03d{extension}"
 
-            existing_segments = 0
-            for i in range(100):
-                segment = f"{base_name}_{i:03d}{extension}"
-                if os.path.exists(segment):
-                    existing_segments += 1
-                else:
-                    break
+            start_number = self._segment_counter
 
             cmd = [
                 "ffmpeg",
@@ -79,6 +172,7 @@ class RecordingThread(threading.Thread):
                 "-analyzeduration", "5M",
                 "-probesize", "5M",
                 "-fflags", "+genpts+discardcorrupt",  # Generate PTS, discard corrupt frames
+                "-use_wallclock_as_timestamps", "1",  # Use system clock for timestamps (fixes non-monotonic DTS on FFmpeg 7+)
                 "-i", input_url,
                 # Output options
                 "-c:v", "copy",
@@ -89,7 +183,7 @@ class RecordingThread(threading.Thread):
                 "-segment_format", "matroska",
                 "-segment_time_delta", "0.5",
                 "-reset_timestamps", "1",
-                "-segment_start_number", str(existing_segments),
+                "-segment_start_number", str(start_number),
                 "-avoid_negative_ts", "make_zero",
                 # MKV options for better resilience
                 "-cluster_size_limit", "2M",  # Smaller clusters = more recovery points
@@ -106,18 +200,29 @@ class RecordingThread(threading.Thread):
                     preexec_fn=os.setsid if os.name != 'nt' else None
                 )
 
+            ffmpeg_exited_ok = False
             while self.running:
                 return_code = self.proc.poll()
 
                 if return_code is not None:
                     with self.lock:
                         self.proc = None
-                    return False
+                    ffmpeg_exited_ok = (return_code == 0)
+                    break
 
                 time.sleep(0.5)
+            else:
+                self._stop_ffmpeg()
 
-            self._stop_ffmpeg()
-            return False
+            # Update segment counter by scanning what FFmpeg created
+            for i in range(start_number, start_number + 1000):
+                segment = f"{base_name}_{i:03d}{extension}"
+                if os.path.exists(segment):
+                    self._segment_counter = i + 1
+                else:
+                    break
+
+            return ffmpeg_exited_ok
 
         except Exception as e:
             print(f"FFmpeg error: {e}")
@@ -150,65 +255,32 @@ class RecordingThread(threading.Thread):
                 finally:
                     self.proc = None
 
-    def _merge_segments(self):
+    def _merge_remaining_segments(self):
+        """Merge any segments the progressive merge thread didn't process yet."""
         try:
             base_name = os.path.splitext(self.file_path)[0]
             extension = os.path.splitext(self.file_path)[1] or '.mkv'
-            segments = []
 
-            max_segments = 100
-
-            for i in range(max_segments):
+            remaining = []
+            for i in range(self._next_merge_segment, self._segment_counter + 10):
                 segment = f"{base_name}_{i:03d}{extension}"
                 if os.path.exists(segment):
-                    segments.append(segment)
-                else:
+                    remaining.append(segment)
+                elif i >= self._segment_counter:
                     break
 
-            if not segments:
-                print(f"No segments found for {self.file_path}")
+            if not remaining:
+                if not os.path.exists(self.file_path):
+                    print(f"No segments found for {self.file_path}")
                 return
 
-            if len(segments) == 1:
-                os.rename(segments[0], self.file_path)
-                print(f"Renamed single segment to {self.file_path}")
-                return
+            print(f"Merging {len(remaining)} remaining segments for {self.file_path}")
 
-            concat_list = os.path.join(os.path.dirname(self.file_path), f".concat_{os.getpid()}_{time.time()}.txt")
-            with open(concat_list, 'w') as f:
-                for segment in segments:
-                    f.write(f"file '{os.path.abspath(segment)}'\n")
-
-            cmd = [
-                "ffmpeg",
-                "-y",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", concat_list,
-                "-c", "copy",
-                "-loglevel", "error",
-                self.file_path
-            ]
-
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            if result.returncode == 0:
-                print(f"Successfully merged {len(segments)} segments into {self.file_path}")
-                for segment in segments:
-                    try:
-                        os.remove(segment)
-                    except Exception as e:
-                        print(f"Error removing segment {segment}: {e}")
-            else:
-                print(f"Error merging segments for {self.file_path}: {result.stderr.decode()}")
-
-            try:
-                os.remove(concat_list)
-            except:
-                pass
+            for segment in remaining:
+                self._merge_single_segment(segment)
 
         except Exception as e:
-            print(f"Error merging segments for {self.file_path}: {e}")
+            print(f"Error merging remaining segments for {self.file_path}: {e}")
 
     def stop(self):
         self.running = False

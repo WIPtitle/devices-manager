@@ -41,3 +41,7 @@ class RecordingRepository(ABC):
     @abstractmethod
     def find_and_delete_oldest_completed(self) -> Recording | None:
         pass
+
+    @abstractmethod
+    def find_incomplete(self) -> Sequence[Recording]:
+        pass

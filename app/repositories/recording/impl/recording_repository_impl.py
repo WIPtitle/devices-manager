@@ -128,3 +128,15 @@ class RecordingRepositoryImpl(RecordingRepository):
         session.commit()
         session.close()
         return recording
+
+
+    def find_incomplete(self) -> Sequence[Recording]:
+        statement = (
+            select(Recording)
+            .where(Recording.is_completed == False)
+            .order_by(Recording.id.asc())
+        )
+        session = self.database_connector.get_new_session()
+        result = session.exec(statement).all()
+        session.close()
+        return result
