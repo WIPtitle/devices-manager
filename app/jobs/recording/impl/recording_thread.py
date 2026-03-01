@@ -167,12 +167,12 @@ class RecordingThread(threading.Thread):
                 # Input options
                 "-rtsp_transport", "tcp",
                 "-rtsp_flags", "prefer_tcp",
-                "-timeout", "5000000",  # 5 sec timeout for RTSP operations
+                "-timeout", "5000000",  # 5 sec socket I/O timeout (microseconds) - FFmpeg 7 renamed stimeout to timeout
                 "-thread_queue_size", "1024",  # Buffer for input packets
                 "-analyzeduration", "5M",
                 "-probesize", "5M",
                 "-fflags", "+genpts+discardcorrupt",  # Generate PTS, discard corrupt frames
-                "-use_wallclock_as_timestamps", "1",  # Use system clock for timestamps (fixes non-monotonic DTS on FFmpeg 7+)
+                "-use_wallclock_as_timestamps", "1",  # Use system clock for timestamps (fixes non-monotonic DTS)
                 "-i", input_url,
                 # Output options
                 "-c:v", "copy",
@@ -196,7 +196,7 @@ class RecordingThread(threading.Thread):
                 self.proc = subprocess.Popen(
                     cmd,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
                     preexec_fn=os.setsid if os.name != 'nt' else None
                 )
 
@@ -205,9 +205,19 @@ class RecordingThread(threading.Thread):
                 return_code = self.proc.poll()
 
                 if return_code is not None:
+                    # Read stderr before clearing proc reference
+                    stderr_output = ""
+                    try:
+                        stderr_output = self.proc.stderr.read().decode(errors='replace').strip()
+                    except:
+                        pass
                     with self.lock:
                         self.proc = None
                     ffmpeg_exited_ok = (return_code == 0)
+                    if stderr_output:
+                        print(f"FFmpeg exited (code={return_code}) for {self.recording.camera_ip}: {stderr_output[-500:]}")
+                    else:
+                        print(f"FFmpeg exited (code={return_code}) for {self.recording.camera_ip}")
                     break
 
                 time.sleep(0.5)
@@ -235,21 +245,21 @@ class RecordingThread(threading.Thread):
                     if os.name != 'nt':
                         self.proc.send_signal(signal.SIGINT)
                         try:
-                            self.proc.wait(timeout=5)
+                            self.proc.communicate(timeout=5)
                         except subprocess.TimeoutExpired:
                             os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
                             try:
-                                self.proc.wait(timeout=2)
+                                self.proc.communicate(timeout=2)
                             except subprocess.TimeoutExpired:
                                 os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
-                                self.proc.wait()
+                                self.proc.communicate()
                     else:
                         self.proc.terminate()
                         try:
-                            self.proc.wait(timeout=5)
+                            self.proc.communicate(timeout=5)
                         except subprocess.TimeoutExpired:
                             self.proc.kill()
-                            self.proc.wait()
+                            self.proc.communicate()
                 except Exception as e:
                     print(f"Error stopping ffmpeg: {e}")
                 finally:
