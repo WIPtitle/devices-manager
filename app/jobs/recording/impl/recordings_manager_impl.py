@@ -248,92 +248,99 @@ class RecordingsManagerImpl(RecordingsManager):
     def _recover_incomplete_recordings(self):
         """Recover recordings interrupted by blackout/restart. Runs in a daemon thread."""
         def recovery_loop():
-            try:
-                incomplete = self.recording_repository.find_incomplete()
-                if not incomplete:
-                    print("Startup recovery: no incomplete recordings found.")
-                    return
+            # Retry until DB is ready (it may still be starting up)
+            incomplete = None
+            for attempt in range(10):
+                try:
+                    incomplete = self.recording_repository.find_incomplete()
+                    break
+                except Exception:
+                    time.sleep(3)
 
-                print(f"Startup recovery: found {len(incomplete)} incomplete recording(s)")
+            if incomplete is None:
+                print("Startup recovery: could not connect to DB after retries.")
+                return
 
-                for recording in incomplete:
-                    try:
-                        file_path = os.path.join(recording.path, recording.name)
-                        base_name = os.path.splitext(file_path)[0]
-                        extension = os.path.splitext(file_path)[1] or '.mkv'
+            if not incomplete:
+                print("Startup recovery: no incomplete recordings found.")
+                return
 
-                        # Collect unmerged segments (early ones may have been deleted by progressive merge)
-                        segments = []
-                        consecutive_misses = 0
-                        for i in range(1000):
-                            segment = f"{base_name}_{i:03d}{extension}"
-                            if os.path.exists(segment):
-                                segments.append(segment)
-                                consecutive_misses = 0
+            print(f"Startup recovery: found {len(incomplete)} incomplete recording(s)")
+
+            for recording in incomplete:
+                try:
+                    file_path = os.path.join(recording.path, recording.name)
+                    base_name = os.path.splitext(file_path)[0]
+                    extension = os.path.splitext(file_path)[1] or '.mkv'
+
+                    # Collect unmerged segments (early ones may have been deleted by progressive merge)
+                    segments = []
+                    consecutive_misses = 0
+                    for i in range(1000):
+                        segment = f"{base_name}_{i:03d}{extension}"
+                        if os.path.exists(segment):
+                            segments.append(segment)
+                            consecutive_misses = 0
+                        else:
+                            consecutive_misses += 1
+                            if consecutive_misses > 20:
+                                break
+
+                    final_exists = os.path.exists(file_path)
+
+                    if not segments and not final_exists:
+                        print(f"Startup recovery: no files for recording {recording.id}, deleting DB entry")
+                        self.recording_repository.delete_by_id(recording.id)
+                        continue
+
+                    if segments:
+                        print(f"Startup recovery: merging {len(segments)} segments for recording {recording.id}")
+                        for segment in segments:
+                            if not os.path.exists(file_path):
+                                os.rename(segment, file_path)
                             else:
-                                consecutive_misses += 1
-                                if consecutive_misses > 20:
-                                    break
+                                temp_path = file_path + ".tmp.mkv"
+                                concat_list = os.path.join(
+                                    os.path.dirname(file_path),
+                                    f".concat_recovery_{time.time()}.txt"
+                                )
+                                with open(concat_list, 'w') as f:
+                                    f.write(f"file '{os.path.abspath(file_path)}'\n")
+                                    f.write(f"file '{os.path.abspath(segment)}'\n")
 
-                        final_exists = os.path.exists(file_path)
+                                cmd = [
+                                    "ffmpeg", "-y",
+                                    "-f", "concat", "-safe", "0",
+                                    "-i", concat_list,
+                                    "-c", "copy",
+                                    "-loglevel", "error",
+                                    temp_path
+                                ]
+                                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-                        if not segments and not final_exists:
-                            # No files at all - delete the DB entry
-                            print(f"Startup recovery: no files for recording {recording.id}, deleting DB entry")
-                            self.recording_repository.delete_by_id(recording.id)
-                            continue
+                                try:
+                                    os.remove(concat_list)
+                                except:
+                                    pass
 
-                        if segments:
-                            print(f"Startup recovery: merging {len(segments)} segments for recording {recording.id}")
-                            for segment in segments:
-                                if not os.path.exists(file_path):
-                                    os.rename(segment, file_path)
-                                else:
-                                    temp_path = file_path + ".tmp.mkv"
-                                    concat_list = os.path.join(
-                                        os.path.dirname(file_path),
-                                        f".concat_recovery_{time.time()}.txt"
-                                    )
-                                    with open(concat_list, 'w') as f:
-                                        f.write(f"file '{os.path.abspath(file_path)}'\n")
-                                        f.write(f"file '{os.path.abspath(segment)}'\n")
-
-                                    cmd = [
-                                        "ffmpeg", "-y",
-                                        "-f", "concat", "-safe", "0",
-                                        "-i", concat_list,
-                                        "-c", "copy",
-                                        "-loglevel", "error",
-                                        temp_path
-                                    ]
-                                    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
+                                if result.returncode == 0:
+                                    os.replace(temp_path, file_path)
                                     try:
-                                        os.remove(concat_list)
+                                        os.remove(segment)
+                                    except:
+                                        pass
+                                else:
+                                    print(f"Startup recovery: merge failed for {segment}: {result.stderr.decode()}")
+                                    try:
+                                        os.remove(temp_path)
                                     except:
                                         pass
 
-                                    if result.returncode == 0:
-                                        os.replace(temp_path, file_path)
-                                        try:
-                                            os.remove(segment)
-                                        except:
-                                            pass
-                                    else:
-                                        print(f"Startup recovery: merge failed for {segment}: {result.stderr.decode()}")
-                                        try:
-                                            os.remove(temp_path)
-                                        except:
-                                            pass
+                    self.recording_repository.set_stopped(recording)
+                    print(f"Startup recovery: completed recording {recording.id}")
 
-                        self.recording_repository.set_stopped(recording)
-                        print(f"Startup recovery: completed recording {recording.id}")
-
-                    except Exception as e:
-                        print(f"Startup recovery: error recovering recording {recording.id}: {e}")
-
-            except Exception as e:
-                print(f"Startup recovery: error: {e}")
+                except Exception as e:
+                    print(f"Startup recovery: error recovering recording {recording.id}: {e}")
 
         threading.Thread(target=recovery_loop, daemon=True).start()
 
