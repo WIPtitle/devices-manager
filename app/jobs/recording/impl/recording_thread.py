@@ -192,11 +192,18 @@ class RecordingThread(threading.Thread):
                 segment_path
             ]
 
+            # Use a temp file for stderr to avoid pipe buffer blocking FFmpeg
+            stderr_path = os.path.join(
+                os.path.dirname(self.file_path),
+                f".ffmpeg_stderr_{os.getpid()}_{self.recording.camera_ip}.log"
+            )
+            stderr_file = open(stderr_path, 'w')
+
             with self.lock:
                 self.proc = subprocess.Popen(
                     cmd,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
+                    stderr=stderr_file,
                     preexec_fn=os.setsid if os.name != 'nt' else None
                 )
 
@@ -205,24 +212,34 @@ class RecordingThread(threading.Thread):
                 return_code = self.proc.poll()
 
                 if return_code is not None:
-                    # Read stderr before clearing proc reference
-                    stderr_output = ""
-                    try:
-                        stderr_output = self.proc.stderr.read().decode(errors='replace').strip()
-                    except:
-                        pass
                     with self.lock:
                         self.proc = None
                     ffmpeg_exited_ok = (return_code == 0)
-                    if stderr_output:
-                        print(f"FFmpeg exited (code={return_code}) for {self.recording.camera_ip}: {stderr_output[-500:]}")
-                    else:
-                        print(f"FFmpeg exited (code={return_code}) for {self.recording.camera_ip}")
+                    stderr_file.close()
+                    try:
+                        with open(stderr_path, 'r') as f:
+                            stderr_output = f.read().strip()
+                        if stderr_output:
+                            print(f"FFmpeg exited (code={return_code}) for {self.recording.camera_ip}: {stderr_output[-500:]}")
+                        else:
+                            print(f"FFmpeg exited (code={return_code}) for {self.recording.camera_ip}")
+                        os.remove(stderr_path)
+                    except:
+                        pass
                     break
 
                 time.sleep(0.5)
             else:
                 self._stop_ffmpeg()
+                stderr_file.close()
+                try:
+                    with open(stderr_path, 'r') as f:
+                        stderr_output = f.read().strip()
+                    if stderr_output:
+                        print(f"FFmpeg stopped for {self.recording.camera_ip}: {stderr_output[-500:]}")
+                    os.remove(stderr_path)
+                except:
+                    pass
 
             # Update segment counter by scanning what FFmpeg created
             for i in range(start_number, start_number + 1000):
@@ -245,21 +262,21 @@ class RecordingThread(threading.Thread):
                     if os.name != 'nt':
                         self.proc.send_signal(signal.SIGINT)
                         try:
-                            self.proc.communicate(timeout=5)
+                            self.proc.wait(timeout=5)
                         except subprocess.TimeoutExpired:
                             os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
                             try:
-                                self.proc.communicate(timeout=2)
+                                self.proc.wait(timeout=2)
                             except subprocess.TimeoutExpired:
                                 os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
-                                self.proc.communicate()
+                                self.proc.wait()
                     else:
                         self.proc.terminate()
                         try:
-                            self.proc.communicate(timeout=5)
+                            self.proc.wait(timeout=5)
                         except subprocess.TimeoutExpired:
                             self.proc.kill()
-                            self.proc.communicate()
+                            self.proc.wait()
                 except Exception as e:
                     print(f"Error stopping ffmpeg: {e}")
                 finally:
