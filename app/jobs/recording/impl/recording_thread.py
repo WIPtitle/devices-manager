@@ -172,7 +172,6 @@ class RecordingThread(threading.Thread):
                 "-analyzeduration", "5M",
                 "-probesize", "5M",
                 "-fflags", "+genpts+discardcorrupt",  # Generate PTS, discard corrupt frames
-                "-use_wallclock_as_timestamps", "1",  # Use system clock for timestamps (fixes non-monotonic DTS)
                 "-i", input_url,
                 # Output options
                 "-c:v", "copy",
