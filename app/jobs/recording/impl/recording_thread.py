@@ -165,12 +165,11 @@ class RecordingThread(threading.Thread):
                 "ffmpeg",
                 "-y",
                 # Input options
-                "-rtsp_transport", "tcp",
-                "-rtsp_flags", "prefer_tcp",
-                "-timeout", "5000000",  # 5 sec socket I/O timeout (microseconds) - FFmpeg 7 renamed stimeout to timeout
+                "-rtsp_transport", "udp",  # UDP: WiFi micro-drops cause frame loss instead of killing FFmpeg
+                "-timeout", "2000000",  # 2 sec socket I/O timeout (reduced for faster recovery)
                 "-thread_queue_size", "1024",  # Buffer for input packets
-                "-analyzeduration", "5M",
-                "-probesize", "5M",
+                "-analyzeduration", "1M",  # Reduced for faster startup on reconnect
+                "-probesize", "1M",  # Reduced for faster startup on reconnect
                 "-fflags", "+genpts+discardcorrupt",  # Generate PTS, discard corrupt frames
                 "-i", input_url,
                 # Output options
