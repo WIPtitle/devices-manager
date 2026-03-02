@@ -241,7 +241,8 @@ class RecordingThread(threading.Thread):
                     pass
 
             # Update segment counter by scanning what FFmpeg created
-            for i in range(start_number, start_number + 1000):
+            # Start from _next_merge_segment since earlier segments may have been merged and deleted
+            for i in range(self._next_merge_segment, self._next_merge_segment + 1000):
                 segment = f"{base_name}_{i:03d}{extension}"
                 if os.path.exists(segment):
                     self._segment_counter = i + 1
