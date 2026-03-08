@@ -13,6 +13,9 @@ COPY . .
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+ENV YOLO_CONFIG_DIR=/tmp/yolo_config
+RUN mkdir -p /tmp/yolo_config/Ultralytics && chmod -R 777 /tmp/yolo_config
+
 EXPOSE 8000
 
 ENTRYPOINT ["/entrypoint.sh"]

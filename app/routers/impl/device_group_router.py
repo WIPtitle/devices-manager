@@ -8,6 +8,7 @@ from app.config.bindings import inject
 from app.exceptions.authentication_exception import AuthenticationException
 from app.exceptions.authorization_exception import AuthorizationException
 from app.exceptions.bad_request_exception import BadRequestException
+from app.models.camera import Camera
 from app.models.device_group import DeviceGroup, DeviceGroupInputDto
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.sensor import Sensor
@@ -64,8 +65,19 @@ class DeviceGroupRouter(RouterWrapper):
             user = await self.auth_client.get_authenticated_user(token)
             if user is None or "MODIFY_DEVICES" not in user.permissions:
                 raise AuthorizationException("Not authorized")
-            # Changed from sensor_pins to sensor_ids
             return self.device_group_service.update_device_group_sensors_by_id(group_id, sensor_ids)
+
+        @self.router.get("/{group_id}/cameras")
+        def get_device_group_cameras(group_id: int) -> Sequence[Camera]:
+            return self.device_group_service.get_device_group_cameras_by_id(group_id)
+
+        @self.router.put("/{group_id}/cameras")
+        async def update_device_group_cameras(request: Request, group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
+            token = request.headers.get("Authorization")
+            user = await self.auth_client.get_authenticated_user(token)
+            if user is None or "MODIFY_DEVICES" not in user.permissions:
+                raise AuthorizationException("Not authorized")
+            return self.device_group_service.update_device_group_cameras_by_id(group_id, camera_ips)
 
         @self.router.delete("/{group_id}")
         async def delete_device_group(request: Request, group_id: int) -> DeviceGroup:

@@ -52,10 +52,20 @@ class CameraRepositoryImpl(CameraRepository):
                 existing_camera.always_recording != camera.always_recording):
             session.close()
             raise BadRequestException(
-                "Only the 'name' field can be modified"
+                "Only name, detection_mode and detection_roi can be modified"
             )
 
+        if camera.detection_mode is not None and camera.detection_mode not in ("motion", "motion+person"):
+            session.close()
+            raise BadRequestException("detection_mode must be 'motion', 'motion+person', or null")
+
+        if camera.detection_mode is not None and not camera.always_recording:
+            session.close()
+            raise BadRequestException("detection_mode requires always_recording to be enabled")
+
         existing_camera.name = camera.name
+        existing_camera.detection_mode = camera.detection_mode
+        existing_camera.detection_roi = camera.detection_roi
 
         session.add(existing_camera)
         session.commit()

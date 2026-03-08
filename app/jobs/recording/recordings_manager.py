@@ -28,3 +28,8 @@ class RecordingsManager:
     def trigger_orphan_files_cleanup(self):
         """Trigger async cleanup of recording files without corresponding DB entries."""
         pass
+
+    @abstractmethod
+    def get_frame_buffer(self, camera_ip: str):
+        """Get the detection frame buffer for a camera's recording thread, or None."""
+        pass

@@ -20,9 +20,13 @@ class RecordingServiceImpl(RecordingService):
         self.recording_manager = recording_manager
 
         # If on boot some recording were not stopped properly, set them as stopped here
+        # (may race with _recover_incomplete_recordings daemon thread which can delete entries)
         for recording in self.recording_repository.find_all():
             if not recording.is_completed:
-                self.recording_repository.set_stopped(recording)
+                try:
+                    self.recording_repository.set_stopped(recording)
+                except Exception:
+                    pass
 
     def get_by_id(self, rec_id: int) -> Recording:
         return self.recording_repository.find_by_id(rec_id)

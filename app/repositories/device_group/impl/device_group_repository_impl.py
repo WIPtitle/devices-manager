@@ -2,6 +2,7 @@ from typing import Sequence
 from sqlmodel import select
 
 from app.exceptions.not_found_exception import NotFoundException
+from app.models.camera import Camera
 from app.models.device_group import DeviceGroup
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.sensor import Sensor
@@ -75,7 +76,6 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         if device_group is None:
             raise NotFoundException("Device group was not found")
 
-        # Updated to use sensor IDs instead of pin numbers
         statement = select(Sensor).where(Sensor.id.in_(sensor_ids))
         new_sensors = session.exec(statement).unique().all()
 
@@ -86,6 +86,34 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         sensors = device_group.sensors
         session.close()
         return sensors
+
+    def find_device_group_cameras_by_id(self, device_group_id: int) -> Sequence[Camera]:
+        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
+        session = self.database_connector.get_new_session()
+        device_group = session.exec(statement).first()
+        if device_group is None:
+            raise NotFoundException("Device group was not found")
+        cameras = device_group.cameras
+        session.close()
+        return cameras
+
+    def update_device_group_cameras_by_id(self, device_group_id: int, camera_ips: Sequence[str]) -> Sequence[Camera]:
+        statement = select(DeviceGroup).where(DeviceGroup.id == device_group_id)
+        session = self.database_connector.get_new_session()
+        device_group = session.exec(statement).unique().first()
+        if device_group is None:
+            raise NotFoundException("Device group was not found")
+
+        statement = select(Camera).where(Camera.ip.in_(camera_ips))
+        new_cameras = session.exec(statement).unique().all()
+
+        device_group.cameras = new_cameras
+
+        session.commit()
+        session.refresh(device_group)
+        cameras = device_group.cameras
+        session.close()
+        return cameras
 
     def find_all_devices_groups(self) -> Sequence[DeviceGroup]:
         statement = select(DeviceGroup)

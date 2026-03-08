@@ -8,6 +8,7 @@ from app.routers.impl.device_group_router import DeviceGroupRouter
 from app.routers.impl.disk_usage_router import DiskUsageRouter
 from app.routers.impl.sensor_router import SensorRouter
 from app.routers.impl.recording_router import RecordingRouter
+from app.routers.impl.system_config_router import SystemConfigRouter
 from app.routers.router_wrapper import RouterWrapper
 
 exception_handlers = get_exception_handlers()
@@ -16,7 +17,8 @@ routers: List[RouterWrapper] = [
     SensorRouter(),
     RecordingRouter(),
     DiskUsageRouter(),
-    DeviceGroupRouter()
+    DeviceGroupRouter(),
+    SystemConfigRouter()
 ]
 
 app = FastAPI()

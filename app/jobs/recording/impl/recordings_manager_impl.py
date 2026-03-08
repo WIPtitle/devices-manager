@@ -33,9 +33,14 @@ class RecordingsManagerImpl(RecordingsManager):
         self._scheduler_stop_event = threading.Event()
         self._scheduler_thread = None
 
-        self.alarm_recording_duration = int(os.getenv('ALARM_RECORDING_DURATION_SECONDS', '120'))
-        self.always_recording_duration = int(os.getenv('ALWAYS_RECORDING_DURATION_SECONDS', '3600'))
+        self.alarm_recording_duration = 120
+        self.always_recording_duration = 3600
         self.cleanup_interval_seconds = int(os.getenv('CLEANUP_INTERVAL_SECONDS', '3600'))  # Default 1 hour
+
+        # Detection config (overridden from DB in bindings.py)
+        self.detection_confidence = 50
+        self.motion_sensitivity = 50
+        self.warning_cooldown_seconds = 60
 
         self._start_cleanup_scheduler()
         self._recover_incomplete_recordings()
@@ -78,7 +83,9 @@ class RecordingsManagerImpl(RecordingsManager):
             duration = self.alarm_recording_duration
             segment_duration = duration // 20
 
-        thread = RecordingThread(camera, recording, segment_duration, self.on_recording_completed)
+        thread = RecordingThread(
+            camera, recording, segment_duration, self.on_recording_completed,
+        )
         thread.start()
 
         with self.lock:
@@ -343,6 +350,13 @@ class RecordingsManagerImpl(RecordingsManager):
                     print(f"Startup recovery: error recovering recording {recording.id}: {e}")
 
         threading.Thread(target=recovery_loop, daemon=True).start()
+
+    def get_frame_buffer(self, camera_ip: str):
+        with self.lock:
+            thread = self.active_threads.get(camera_ip)
+            if thread and thread.frame_buffer is not None:
+                return thread.frame_buffer
+        return None
 
     def _get_base_recording_name(self, filename: str) -> str:
         """Extract base recording name from filename (handles segments like file_000.mkv)."""

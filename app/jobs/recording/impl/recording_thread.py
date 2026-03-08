@@ -1,14 +1,21 @@
+import collections
 import os
 import threading
 import subprocess
 import time
 import signal
 
+import numpy as np
+
 from app.models.camera import Camera
 from app.models.recording import Recording
 
 
 class RecordingThread(threading.Thread):
+    DETECTION_FPS = 0.5
+    DETECTION_WIDTH = 640
+    DETECTION_HEIGHT = 360
+
     def __init__(self, camera: 'Camera', recording: 'Recording', segment_duration: int, on_completion_callback):
         super().__init__()
         self.camera = camera
@@ -22,6 +29,11 @@ class RecordingThread(threading.Thread):
         self.max_retry_delay = 30
         self.lock = threading.Lock()
         self.merge_completed = False
+
+        # Detection frame buffer (shared with MotionDetectionWorker)
+        # Always enabled for always_recording cameras so detection can be toggled at runtime
+        self.detection_enabled = camera.always_recording
+        self.frame_buffer = collections.deque(maxlen=1) if self.detection_enabled else None
 
         base_name = os.path.splitext(self.file_path)[0]
         extension = os.path.splitext(self.file_path)[1] or '.mkv'
@@ -104,7 +116,7 @@ class RecordingThread(threading.Thread):
                 os.rename(segment_path, self.file_path)
                 print(f"Progressive merge: renamed first segment to {self.file_path}")
             else:
-                # Concat final file + segment → temp, then rename
+                # Concat final file + segment -> temp, then rename
                 temp_path = self.file_path + ".tmp.mkv"
                 concat_list = os.path.join(
                     os.path.dirname(self.file_path),
@@ -153,7 +165,7 @@ class RecordingThread(threading.Thread):
 
     def _run_ffmpeg(self):
         try:
-            input_url = f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}"
+            input_url = self.camera.rtsp_url()
 
             base_name = os.path.splitext(self.file_path)[0]
             extension = os.path.splitext(self.file_path)[1] or '.mkv'
@@ -168,8 +180,8 @@ class RecordingThread(threading.Thread):
                 "-rtsp_transport", "udp",  # UDP: WiFi micro-drops cause frame loss instead of killing FFmpeg
                 "-timeout", "2000000",  # 2 sec socket I/O timeout (reduced for faster recovery)
                 "-thread_queue_size", "1024",  # Buffer for input packets
-                "-analyzeduration", "1M",  # Reduced for faster startup on reconnect
-                "-probesize", "1M",  # Reduced for faster startup on reconnect
+                "-analyzeduration", "5M",
+                "-probesize", "5M",
                 "-fflags", "+genpts+discardcorrupt",  # Generate PTS, discard corrupt frames
                 "-i", input_url,
                 # Output options
@@ -190,6 +202,16 @@ class RecordingThread(threading.Thread):
                 segment_path
             ]
 
+            # Output 2: detection frames (if enabled)
+            if self.detection_enabled:
+                cmd.extend([
+                    "-vf", f"fps={self.DETECTION_FPS},scale={self.DETECTION_WIDTH}:{self.DETECTION_HEIGHT}",
+                    "-an",
+                    "-f", "rawvideo",
+                    "-pix_fmt", "bgr24",
+                    "pipe:1"
+                ])
+
             # Use a temp file for stderr to avoid pipe buffer blocking FFmpeg
             stderr_path = os.path.join(
                 os.path.dirname(self.file_path),
@@ -197,13 +219,25 @@ class RecordingThread(threading.Thread):
             )
             stderr_file = open(stderr_path, 'w')
 
+            stdout_target = subprocess.PIPE if self.detection_enabled else subprocess.DEVNULL
+
             with self.lock:
                 self.proc = subprocess.Popen(
                     cmd,
-                    stdout=subprocess.DEVNULL,
+                    stdout=stdout_target,
                     stderr=stderr_file,
                     preexec_fn=os.setsid if os.name != 'nt' else None
                 )
+
+            # Start frame reader thread if detection is enabled
+            frame_reader_thread = None
+            if self.detection_enabled and self.proc and self.proc.stdout:
+                frame_reader_thread = threading.Thread(
+                    target=self._read_frames,
+                    args=(self.proc,),
+                    daemon=True
+                )
+                frame_reader_thread.start()
 
             ffmpeg_exited_ok = False
             while self.running:
@@ -239,6 +273,10 @@ class RecordingThread(threading.Thread):
                 except:
                     pass
 
+            # Wait for frame reader to finish
+            if frame_reader_thread and frame_reader_thread.is_alive():
+                frame_reader_thread.join(timeout=5)
+
             # Update segment counter by scanning what FFmpeg created
             # Start from _next_merge_segment since earlier segments may have been merged and deleted
             for i in range(self._next_merge_segment, self._next_merge_segment + 1000):
@@ -253,6 +291,21 @@ class RecordingThread(threading.Thread):
         except Exception as e:
             print(f"FFmpeg error: {e}")
             return False
+
+    def _read_frames(self, proc):
+        """Read raw BGR24 frames from FFmpeg stdout into the frame buffer."""
+        frame_size = self.DETECTION_WIDTH * self.DETECTION_HEIGHT * 3
+        while self.running:
+            try:
+                raw = proc.stdout.read(frame_size)
+                if not raw or len(raw) < frame_size:
+                    break
+                frame = np.frombuffer(raw, dtype=np.uint8).reshape(
+                    (self.DETECTION_HEIGHT, self.DETECTION_WIDTH, 3)
+                )
+                self.frame_buffer.append(frame)
+            except Exception:
+                break
 
     def _stop_ffmpeg(self):
         with self.lock:

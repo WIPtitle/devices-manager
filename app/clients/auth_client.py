@@ -1,4 +1,3 @@
-import os
 from typing import List
 
 import httpx
@@ -13,7 +12,7 @@ class UserResponse(SQLModel):
 
 class AuthClient:
     def __init__(self):
-        self.auth_hostname = os.getenv("AUTH_HOSTNAME")
+        self.auth_hostname = "project-auth"
 
     async def get_authenticated_user(self, token: str):
         url = f"http://{self.auth_hostname}:8000/auth/user"

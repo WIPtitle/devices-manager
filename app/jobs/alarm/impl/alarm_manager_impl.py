@@ -1,7 +1,6 @@
-import os
-
 from app.clients.alarm_events_client import AlarmEventsClient
 from app.jobs.alarm.alarm_manager import AlarmManager
+from app.jobs.detection.detection_manager import DetectionManager
 from app.models.enums.device_group_status import DeviceGroupStatus
 from app.models.recording import Recording, RecordingInputDto
 from app.repositories.camera.camera_repository import CameraRepository
@@ -24,10 +23,12 @@ class AlarmManagerImpl(AlarmManager):
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
         self.sensor_repository = sensor_repository
+        self.detection_manager: DetectionManager | None = None
         self.alarm = False
+        self.alarm_recording_duration = 120
 
-        # Read alarm recording duration from environment (default 120 seconds = 2 minutes)
-        self.alarm_recording_duration = int(os.getenv('ALARM_RECORDING_DURATION_SECONDS', '120'))
+    def set_detection_manager(self, detection_manager: DetectionManager):
+        self.detection_manager = detection_manager
 
     def on_sensor_triggered(self, sensor_id: str):
         """Called when any sensor is triggered (goes HIGH)"""
@@ -37,6 +38,9 @@ class AlarmManagerImpl(AlarmManager):
         # If not already in alarm and sensor goes HIGH, trigger alarm immediately
         if not self.alarm and group and group.status == DeviceGroupStatus.LISTENING:
             self.alarm = True
+            # Disable motion detection warnings immediately
+            if self.detection_manager:
+                self.detection_manager.on_group_leave_listening()
             self.alarm_events_client.notify_alarm_waiting(started=True)
             delay_execution(
                 func=self.trigger_alarm,

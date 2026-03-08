@@ -44,9 +44,22 @@ class CameraServiceImpl(CameraService):
     def get_by_ip(self, ip: str) -> Camera:
         return self.camera_repository.find_by_ip(ip)
 
+    @staticmethod
+    def _normalize_host(host: str) -> str:
+        if host in ("localhost", "127.0.0.1"):
+            return "host.docker.internal"
+        return host
+
     def create(self, camera: Camera) -> Camera:
+        camera.ip = self._normalize_host(camera.ip)
         if not camera.is_reachable():
             raise BadRequestException("Camera is not reachable")
+
+        if camera.detection_mode is not None:
+            if camera.detection_mode not in ("motion", "motion+person"):
+                raise BadRequestException("detection_mode must be 'motion', 'motion+person', or null")
+            if not camera.always_recording:
+                raise BadRequestException("detection_mode requires always_recording to be enabled")
 
         camera = self.camera_repository.create(camera)
 

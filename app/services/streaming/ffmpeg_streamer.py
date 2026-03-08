@@ -12,7 +12,7 @@ class FFmpegStreamer:
         self.running = False
 
     async def generate_stream(self) -> AsyncGenerator[bytes, None]:
-        rtsp_url = f"rtsp://{self.camera.username}:{self.camera.password}@{self.camera.ip}:{self.camera.port}/{self.camera.path}"
+        rtsp_url = self.camera.rtsp_url()
 
         cmd = [
             "ffmpeg",
