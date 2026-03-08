@@ -56,18 +56,26 @@ class MotionDetectionWorker:
         if not roi_json:
             return None
         try:
-            points = json.loads(roi_json)
-            if not points or len(points) < 3:
+            polygons = json.loads(roi_json)
+            if not polygons or not isinstance(polygons, list):
                 return None
 
-            # Convert normalized coordinates (0-1) to pixel coordinates
-            pixel_points = np.array(
-                [[int(p[0] * w), int(p[1] * h)] for p in points],
-                dtype=np.int32,
-            )
+            # Format: array of polygons [[[x,y],[x,y],...], ...]
+            all_pixel_polys = []
+            for polygon in polygons:
+                if not polygon or len(polygon) < 3:
+                    continue
+                pixel_points = np.array(
+                    [[int(p[0] * w), int(p[1] * h)] for p in polygon],
+                    dtype=np.int32,
+                )
+                all_pixel_polys.append(pixel_points)
+
+            if not all_pixel_polys:
+                return None
 
             mask = np.zeros((h, w), dtype=np.uint8)
-            cv2.fillPoly(mask, [pixel_points], 255)
+            cv2.fillPoly(mask, all_pixel_polys, 255)
             return mask
         except Exception as e:
             print(f"Error building ROI mask: {e}")
