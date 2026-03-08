@@ -1,6 +1,5 @@
 import os
 import logging
-import time
 from functools import wraps
 from typing import Callable, get_type_hints, List, Tuple
 
@@ -72,12 +71,6 @@ for gpio_server in gpio_servers:
 def _apply_startup_config():
     """Apply DB config values that need to be set at startup."""
     try:
-        tz = system_config_repository.get_config("timezone")
-        if tz:
-            os.environ["TZ"] = tz
-            time.tzset()
-            print(f"Applied timezone from DB: {tz}")
-
         yolo_model = system_config_repository.get_config("detection_yolo_model")
         if yolo_model:
             os.environ["DETECTION_YOLO_MODEL"] = yolo_model

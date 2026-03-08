@@ -1,5 +1,4 @@
 import os
-import time
 from typing import Sequence
 
 import httpx
@@ -23,7 +22,6 @@ VALID_CONFIG_KEYS = {
     "detection_yolo_model",
     "detection_confidence",
     "motion_sensitivity",
-    "timezone",
 }
 
 VALID_YOLO_MODELS = [
@@ -113,11 +111,6 @@ class SystemConfigServiceImpl(SystemConfigService):
         elif key == "detection_yolo_model":
             DetectionModelProvider.reload(value)
             print(f"Config updated: detection_yolo_model = {value}")
-
-        elif key == "timezone":
-            os.environ["TZ"] = value
-            time.tzset()
-            print(f"Config updated: timezone = {value}")
 
         elif key == "detection_confidence":
             self.recordings_manager.detection_confidence = int(value)

@@ -121,8 +121,8 @@ class MotionDetectionWorker:
             frame_count += 1
 
             if frame_count == 1:
-                print(f"[Detection] {self.camera.ip}: first frame received, shape={frame.shape}, "
-                      f"roi_mask={'set '+str(self.roi_mask.shape) if self.roi_mask is not None else 'none'}")
+                roi_coverage = f"{np.count_nonzero(self.roi_mask)}/{self.roi_mask.size} px" if self.roi_mask is not None else "full frame"
+                print(f"[Detection] {self.camera.ip}: first frame received, shape={frame.shape}, roi={roi_coverage}")
 
             # Apply ROI mask
             if self.roi_mask is not None:

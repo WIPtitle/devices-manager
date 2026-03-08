@@ -12,7 +12,7 @@ from app.models.recording import Recording
 
 
 class RecordingThread(threading.Thread):
-    DETECTION_FPS = 0.5
+    DETECTION_FPS = 1
     DETECTION_WIDTH = 640
     DETECTION_HEIGHT = 360
 

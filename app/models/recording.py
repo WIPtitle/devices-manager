@@ -34,7 +34,7 @@ class Recording(SQLModel, table=True):
 
     @classmethod
     def from_dto(cls, dto: RecordingInputDto):
-        start_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        start_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y_%m_%d_%H_%M_%S")
         file_name = f"{start_time}_{dto.camera_ip}.mkv"
 
         if dto.always_recording:
