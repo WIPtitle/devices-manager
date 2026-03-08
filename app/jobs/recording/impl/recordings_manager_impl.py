@@ -303,8 +303,12 @@ class RecordingsManagerImpl(RecordingsManager):
                     if segments:
                         print(f"Startup recovery: merging {len(segments)} segments for recording {recording.id}")
                         for segment in segments:
+                            # Re-encode segment to fix VFR timestamp issues
+                            fixed = self._reencode_segment(segment)
+                            use_segment = fixed if fixed else segment
+
                             if not os.path.exists(file_path):
-                                os.rename(segment, file_path)
+                                os.rename(use_segment, file_path)
                             else:
                                 temp_path = file_path + ".tmp.mkv"
                                 concat_list = os.path.join(
@@ -313,7 +317,7 @@ class RecordingsManagerImpl(RecordingsManager):
                                 )
                                 with open(concat_list, 'w') as f:
                                     f.write(f"file '{os.path.abspath(file_path)}'\n")
-                                    f.write(f"file '{os.path.abspath(segment)}'\n")
+                                    f.write(f"file '{os.path.abspath(use_segment)}'\n")
 
                                 cmd = [
                                     "ffmpeg", "-y",
@@ -333,7 +337,7 @@ class RecordingsManagerImpl(RecordingsManager):
                                 if result.returncode == 0:
                                     os.replace(temp_path, file_path)
                                     try:
-                                        os.remove(segment)
+                                        os.remove(use_segment)
                                     except:
                                         pass
                                 else:
@@ -350,6 +354,35 @@ class RecordingsManagerImpl(RecordingsManager):
                     print(f"Startup recovery: error recovering recording {recording.id}: {e}")
 
         threading.Thread(target=recovery_loop, daemon=True).start()
+
+    @staticmethod
+    def _reencode_segment(segment_path):
+        """Re-encode a segment to fix VFR timestamp issues for browser compatibility."""
+        fixed_path = segment_path + ".fixed.mkv"
+        try:
+            cmd = [
+                "ffmpeg", "-y",
+                "-fflags", "+genpts",
+                "-i", segment_path,
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-c:a", "copy",
+                "-loglevel", "error",
+                fixed_path
+            ]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if result.returncode == 0:
+                try:
+                    os.remove(segment_path)
+                except:
+                    pass
+                print(f"Re-encoded segment: {os.path.basename(segment_path)}")
+                return fixed_path
+            else:
+                print(f"Re-encode failed for {segment_path}: {result.stderr.decode()}")
+                return None
+        except Exception as e:
+            print(f"Error re-encoding segment {segment_path}: {e}")
+            return None
 
     def get_frame_buffer(self, camera_ip: str):
         with self.lock:

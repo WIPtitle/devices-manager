@@ -91,7 +91,7 @@ class RecordingThread(threading.Thread):
                     print(f"Error calling recording completion callback: {e}")
 
     def _progressive_merge_loop(self):
-        """Daemon thread that merges segments into the final file as they complete."""
+        """Daemon thread that re-encodes and merges segments into the final file as they complete."""
         while self.running:
             try:
                 base_name = os.path.splitext(self.file_path)[0]
@@ -102,11 +102,40 @@ class RecordingThread(threading.Thread):
                 next_segment = f"{base_name}_{self._next_merge_segment + 1:03d}{extension}"
 
                 if os.path.exists(current_segment) and os.path.exists(next_segment):
-                    self._merge_single_segment(current_segment)
+                    fixed = self._reencode_segment(current_segment)
+                    self._merge_single_segment(fixed if fixed else current_segment)
             except Exception as e:
                 print(f"Error in progressive merge loop: {e}")
 
             time.sleep(2)
+
+    def _reencode_segment(self, segment_path):
+        """Re-encode a segment to fix VFR timestamp issues for browser compatibility."""
+        fixed_path = segment_path + ".fixed.mkv"
+        try:
+            cmd = [
+                "ffmpeg", "-y",
+                "-fflags", "+genpts",
+                "-i", segment_path,
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-c:a", "copy",
+                "-loglevel", "error",
+                fixed_path
+            ]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if result.returncode == 0:
+                try:
+                    os.remove(segment_path)
+                except:
+                    pass
+                print(f"Re-encoded segment: {os.path.basename(segment_path)}")
+                return fixed_path
+            else:
+                print(f"Re-encode failed for {segment_path}: {result.stderr.decode()}")
+                return None
+        except Exception as e:
+            print(f"Error re-encoding segment {segment_path}: {e}")
+            return None
 
     def _merge_single_segment(self, segment_path):
         """Merge a single segment into the final file."""
@@ -356,7 +385,8 @@ class RecordingThread(threading.Thread):
             print(f"Merging {len(remaining)} remaining segments for {self.file_path}")
 
             for segment in remaining:
-                self._merge_single_segment(segment)
+                fixed = self._reencode_segment(segment)
+                self._merge_single_segment(fixed if fixed else segment)
 
         except Exception as e:
             print(f"Error merging remaining segments for {self.file_path}: {e}")
