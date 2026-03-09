@@ -15,6 +15,7 @@ from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.alarm.impl.alarm_manager_impl import AlarmManagerImpl
 from app.jobs.detection.detection_manager import DetectionManager
 from app.jobs.detection.impl.detection_manager_impl import DetectionManagerImpl
+from app.jobs.detection.impl.notification_scheduler import NotificationScheduler
 from app.jobs.recording.impl.recordings_manager_impl import RecordingsManagerImpl
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.jobs.sensor.impl.sensors_listener_impl import SensorsListenerImpl
@@ -120,19 +121,24 @@ if _alarm_duration:
 
 sensors_listener = SensorsListenerImpl(alarm_manager, sensor_repository, gpio_monitor_clients)
 
-detection_manager = DetectionManagerImpl(recording_manager, alarm_events_client, camera_repository)
+notification_scheduler = NotificationScheduler(alarm_events_client)
+_notification_delay = system_config_repository.get_config("warning_notification_delay_seconds")
+if _notification_delay:
+    notification_scheduler.delay_seconds = int(_notification_delay)
+
+detection_manager = DetectionManagerImpl(recording_manager, alarm_events_client, camera_repository, notification_scheduler)
 alarm_manager.set_detection_manager(detection_manager)
 
 system_config_service = SystemConfigServiceImpl(
     system_config_repository, device_group_repository, sensor_repository,
-    recording_manager, alarm_manager, sensors_listener
+    recording_manager, alarm_manager, sensors_listener, notification_scheduler
 )
 
 # camera_service must be created first so recordings (and frame buffers) are running
 # before device_group_service recovery tries to start detection workers
 camera_service = CameraServiceImpl(camera_repository=camera_repository, recording_service=recording_service)
 sensor_service = SensorServiceImpl(sensor_repository=sensor_repository, sensors_listener=sensors_listener)
-device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, sensor_repository, alarm_manager, alarm_events_client, detection_manager)
+device_group_service = DeviceGroupServiceImpl(device_group_repository, camera_repository, sensor_repository, alarm_manager, alarm_events_client, detection_manager, notification_scheduler)
 
 bindings[DatabaseConnector] = database_connector
 bindings[AlarmEventsClient] = alarm_events_client

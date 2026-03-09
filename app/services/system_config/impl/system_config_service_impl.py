@@ -7,6 +7,7 @@ from app.clients.gpio_monitor_client import GpioMonitorClient
 from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.detection.impl.detection_model_provider import DetectionModelProvider
+from app.jobs.detection.impl.notification_scheduler import NotificationScheduler
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.jobs.sensor.sensors_listener import SensorsListener
 from app.models.system_config import GpioServer, Mp3Server
@@ -19,6 +20,7 @@ VALID_CONFIG_KEYS = {
     "alarm_recording_duration_seconds",
     "always_recording_duration_seconds",
     "warning_cooldown_seconds",
+    "warning_notification_delay_seconds",
     "detection_yolo_model",
     "detection_confidence",
     "motion_sensitivity",
@@ -38,13 +40,15 @@ class SystemConfigServiceImpl(SystemConfigService):
                  sensor_repository: SensorRepository,
                  recordings_manager: RecordingsManager,
                  alarm_manager: AlarmManager,
-                 sensors_listener: SensorsListener):
+                 sensors_listener: SensorsListener,
+                 notification_scheduler: NotificationScheduler):
         self.system_config_repository = system_config_repository
         self.device_group_repository = device_group_repository
         self.sensor_repository = sensor_repository
         self.recordings_manager = recordings_manager
         self.alarm_manager = alarm_manager
         self.sensors_listener = sensors_listener
+        self.notification_scheduler = notification_scheduler
 
     def _ensure_all_groups_idle(self):
         if not self.device_group_repository.are_all_groups_idle():
@@ -77,7 +81,7 @@ class SystemConfigServiceImpl(SystemConfigService):
             except ValueError:
                 raise BadRequestException(f"{key} must be an integer")
 
-        elif key == "warning_cooldown_seconds":
+        elif key in ("warning_cooldown_seconds", "warning_notification_delay_seconds"):
             try:
                 v = int(value)
                 if v < 0:
@@ -123,6 +127,10 @@ class SystemConfigServiceImpl(SystemConfigService):
         elif key == "warning_cooldown_seconds":
             self.recordings_manager.warning_cooldown_seconds = int(value)
             print(f"Config updated: warning_cooldown_seconds = {value}")
+
+        elif key == "warning_notification_delay_seconds":
+            self.notification_scheduler.delay_seconds = int(value)
+            print(f"Config updated: warning_notification_delay_seconds = {value}")
 
     # --- GPIO Servers ---
 

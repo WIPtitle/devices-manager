@@ -8,6 +8,7 @@ import numpy as np
 
 from app.clients.alarm_events_client import AlarmEventsClient
 from app.jobs.detection.impl.detection_model_provider import DetectionModelProvider
+from app.jobs.detection.impl.notification_scheduler import NotificationScheduler
 from app.models.camera import Camera
 
 DIFF_BLUR_KERNEL = 21
@@ -30,12 +31,16 @@ class MotionDetectionWorker:
 
     def __init__(self, camera: Camera, frame_buffer, alarm_events_client: AlarmEventsClient,
                  detection_manager=None,
+                 group_id: int = 0,
+                 notification_scheduler: NotificationScheduler = None,
                  detection_confidence: int = 50, motion_sensitivity: int = 50,
                  warning_cooldown_seconds: int = 60):
         self.camera = camera
         self.frame_buffer = frame_buffer
         self.alarm_events_client = alarm_events_client
         self.detection_manager = detection_manager
+        self.group_id = group_id
+        self.notification_scheduler = notification_scheduler
         self.running = False
         self._thread = None
 
@@ -236,11 +241,16 @@ class MotionDetectionWorker:
             except Exception as e:
                 print(f"[Detection] {self.camera.ip}: error encoding snapshot: {e}")
 
-            # Trigger WARNING
+            # Trigger WARNING: audio immediately, notification via scheduler (with delay)
             try:
-                self.alarm_events_client.notify_motion_warning(self.camera.name, snapshot_jpeg=snapshot_jpeg)
+                self.alarm_events_client.notify_motion_warning_audio(self.camera.name)
+            except Exception as e:
+                print(f"[Detection] {self.camera.ip}: error sending audio warning: {e}")
+
+            try:
+                self.notification_scheduler.schedule(self.group_id, self.camera.name, snapshot_jpeg)
                 print(f"[Detection] {self.camera.ip}: WARNING triggered")
             except Exception as e:
-                print(f"[Detection] {self.camera.ip}: error sending warning: {e}")
+                print(f"[Detection] {self.camera.ip}: error scheduling notification: {e}")
 
             time.sleep(1)

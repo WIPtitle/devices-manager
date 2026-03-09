@@ -4,6 +4,7 @@ from typing import Sequence
 from app.clients.alarm_events_client import AlarmEventsClient
 from app.jobs.detection.detection_manager import DetectionManager
 from app.jobs.detection.impl.motion_detection_worker import MotionDetectionWorker
+from app.jobs.detection.impl.notification_scheduler import NotificationScheduler
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.repositories.camera.camera_repository import CameraRepository
 
@@ -12,15 +13,17 @@ class DetectionManagerImpl(DetectionManager):
     def __init__(self,
                  recordings_manager: RecordingsManager,
                  alarm_events_client: AlarmEventsClient,
-                 camera_repository: CameraRepository):
+                 camera_repository: CameraRepository,
+                 notification_scheduler: NotificationScheduler):
         self.recordings_manager = recordings_manager
         self.alarm_events_client = alarm_events_client
         self.camera_repository = camera_repository
+        self.notification_scheduler = notification_scheduler
         self.active_workers: dict[str, MotionDetectionWorker] = {}
         self._warning_enabled = False
         self._lock = threading.Lock()
 
-    def on_group_start_listening(self, camera_ips: Sequence[str]):
+    def on_group_start_listening(self, group_id: int, camera_ips: Sequence[str]):
         with self._lock:
             self._warning_enabled = True
 
@@ -37,6 +40,8 @@ class DetectionManagerImpl(DetectionManager):
                     frame_buffer=frame_buffer,
                     alarm_events_client=self.alarm_events_client,
                     detection_manager=self,
+                    group_id=group_id,
+                    notification_scheduler=self.notification_scheduler,
                     detection_confidence=self.recordings_manager.detection_confidence,
                     motion_sensitivity=self.recordings_manager.motion_sensitivity,
                     warning_cooldown_seconds=self.recordings_manager.warning_cooldown_seconds,

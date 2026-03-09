@@ -5,6 +5,7 @@ from app.clients.alarm_events_client import AlarmEventsClient
 from app.exceptions.bad_request_exception import BadRequestException
 from app.jobs.alarm.alarm_manager import AlarmManager
 from app.jobs.detection.detection_manager import DetectionManager
+from app.jobs.detection.impl.notification_scheduler import NotificationScheduler
 from app.models.camera import Camera
 from app.models.device_group import DeviceGroup
 from app.models.enums.device_group_status import DeviceGroupStatus
@@ -24,13 +25,15 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                  sensor_repository: SensorRepository,
                  alarm_manager: AlarmManager,
                  alarm_events_client: AlarmEventsClient,
-                 detection_manager: DetectionManager):
+                 detection_manager: DetectionManager,
+                 notification_scheduler: NotificationScheduler):
         self.device_group_repository = device_group_repository
         self.camera_repository = camera_repository
         self.sensor_repository = sensor_repository
         self.alarm_manager = alarm_manager
         self.alarm_events_client = alarm_events_client
         self.detection_manager = detection_manager
+        self.notification_scheduler = notification_scheduler
 
         # Publish initial state for all existing groups and recover detection
         for group in self.device_group_repository.find_all_devices_groups():
@@ -40,7 +43,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                 camera_ips = [c.ip for c in group_cameras]
                 if camera_ips:
                     print(f"Startup recovery: restoring motion detection for group {group.name} ({len(camera_ips)} camera(s))")
-                    self.detection_manager.on_group_start_listening(camera_ips)
+                    self.detection_manager.on_group_start_listening(group.id, camera_ips)
                 # If in ALARM state, detection workers are running but warnings must be disabled
                 if group.status == DeviceGroupStatus.ALARM:
                     self.detection_manager.on_group_leave_listening()
@@ -161,7 +164,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         # Start motion detection only on cameras assigned to this group
         group_cameras = self.device_group_repository.find_device_group_cameras_by_id(group_id)
         camera_ips = [c.ip for c in group_cameras]
-        self.detection_manager.on_group_start_listening(camera_ips)
+        self.detection_manager.on_group_start_listening(group_id, camera_ips)
 
     def do_stop_listening(self, group_id: int):
         sensors = self.get_device_group_sensors_by_id(group_id)
@@ -171,6 +174,9 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
         # Stop all audio (warning, waiting, alarm) regardless of current state
         self.alarm_events_client.notify_alarm_stopped()
+
+        # Cancel pending notifications for this group (alarm stopped = normal re-entry)
+        self.notification_scheduler.cancel_group(group_id)
 
         # Stop motion detection on all cameras
         self.detection_manager.on_all_groups_idle()

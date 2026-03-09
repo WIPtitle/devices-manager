@@ -40,9 +40,8 @@ class AlarmEventsClient:
             response = client.post(url, json={"sensor_name": sensor_name})
             response.raise_for_status()
 
-    def notify_motion_warning(self, camera_name: str, snapshot_jpeg: bytes | None = None):
-        """Notify audio service (warning sound) and save notification with snapshot to DB."""
-        # Audio warning
+    def notify_motion_warning_audio(self, camera_name: str):
+        """Notify audio service about motion warning (immediate sound)."""
         audio_url = f"http://{self.local_audio_hostname}:8000/internal/alarm/motion-warning"
         try:
             with httpx.Client(timeout=self.timeout) as client:
@@ -50,7 +49,8 @@ class AlarmEventsClient:
         except Exception as e:
             print(f"Warning: failed to notify audio for motion warning: {e}")
 
-        # Save notification with snapshot to DB (no push)
+    def send_motion_notification(self, camera_name: str, snapshot_jpeg: bytes | None = None):
+        """Send motion warning notification to notifications-manager (DB + ntfy push)."""
         notif_url = f"http://{self.notifications_hostname}:8000/internal/alarm/motion-warning"
         try:
             files = {}

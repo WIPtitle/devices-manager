@@ -4,7 +4,7 @@ from typing import Sequence
 
 class DetectionManager:
     @abstractmethod
-    def on_group_start_listening(self, camera_ips: Sequence[str]):
+    def on_group_start_listening(self, group_id: int, camera_ips: Sequence[str]):
         pass
 
     @abstractmethod
