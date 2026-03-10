@@ -303,8 +303,8 @@ class RecordingsManagerImpl(RecordingsManager):
                     if segments:
                         print(f"Startup recovery: merging {len(segments)} segments for recording {recording.id}")
                         for segment in segments:
-                            # Re-encode segment to fix VFR timestamp issues
-                            fixed = self._reencode_segment(segment)
+                            # Remux segment to fix VFR timestamp issues
+                            fixed = self._fix_segment_timestamps(segment)
                             use_segment = fixed if fixed else segment
 
                             if not os.path.exists(file_path):
@@ -356,16 +356,15 @@ class RecordingsManagerImpl(RecordingsManager):
         threading.Thread(target=recovery_loop, daemon=True).start()
 
     @staticmethod
-    def _reencode_segment(segment_path):
-        """Re-encode a segment to fix VFR timestamp issues for browser compatibility."""
+    def _fix_segment_timestamps(segment_path):
+        """Remux a segment to fix VFR timestamp issues for browser compatibility (no re-encoding)."""
         fixed_path = segment_path + ".fixed.mkv"
         try:
             cmd = [
                 "ffmpeg", "-y",
                 "-fflags", "+genpts",
                 "-i", segment_path,
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
-                "-c:a", "copy",
+                "-c", "copy",
                 "-loglevel", "error",
                 fixed_path
             ]
@@ -375,13 +374,13 @@ class RecordingsManagerImpl(RecordingsManager):
                     os.remove(segment_path)
                 except:
                     pass
-                print(f"Re-encoded segment: {os.path.basename(segment_path)}")
+                print(f"Fixed timestamps for segment: {os.path.basename(segment_path)}")
                 return fixed_path
             else:
-                print(f"Re-encode failed for {segment_path}: {result.stderr.decode()}")
+                print(f"Timestamp fix failed for {segment_path}: {result.stderr.decode()}")
                 return None
         except Exception as e:
-            print(f"Error re-encoding segment {segment_path}: {e}")
+            print(f"Error fixing segment timestamps {segment_path}: {e}")
             return None
 
     def get_frame_buffer(self, camera_ip: str):

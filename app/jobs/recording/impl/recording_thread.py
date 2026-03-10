@@ -102,23 +102,22 @@ class RecordingThread(threading.Thread):
                 next_segment = f"{base_name}_{self._next_merge_segment + 1:03d}{extension}"
 
                 if os.path.exists(current_segment) and os.path.exists(next_segment):
-                    fixed = self._reencode_segment(current_segment)
+                    fixed = self._fix_segment_timestamps(current_segment)
                     self._merge_single_segment(fixed if fixed else current_segment)
             except Exception as e:
                 print(f"Error in progressive merge loop: {e}")
 
             time.sleep(2)
 
-    def _reencode_segment(self, segment_path):
-        """Re-encode a segment to fix VFR timestamp issues for browser compatibility."""
+    def _fix_segment_timestamps(self, segment_path):
+        """Remux a segment to fix VFR timestamp issues for browser compatibility (no re-encoding)."""
         fixed_path = segment_path + ".fixed.mkv"
         try:
             cmd = [
                 "ffmpeg", "-y",
                 "-fflags", "+genpts",
                 "-i", segment_path,
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
-                "-c:a", "copy",
+                "-c", "copy",
                 "-loglevel", "error",
                 fixed_path
             ]
@@ -128,13 +127,13 @@ class RecordingThread(threading.Thread):
                     os.remove(segment_path)
                 except:
                     pass
-                print(f"Re-encoded segment: {os.path.basename(segment_path)}")
+                print(f"Fixed timestamps for segment: {os.path.basename(segment_path)}")
                 return fixed_path
             else:
-                print(f"Re-encode failed for {segment_path}: {result.stderr.decode()}")
+                print(f"Timestamp fix failed for {segment_path}: {result.stderr.decode()}")
                 return None
         except Exception as e:
-            print(f"Error re-encoding segment {segment_path}: {e}")
+            print(f"Error fixing segment timestamps {segment_path}: {e}")
             return None
 
     def _merge_single_segment(self, segment_path):
@@ -385,7 +384,7 @@ class RecordingThread(threading.Thread):
             print(f"Merging {len(remaining)} remaining segments for {self.file_path}")
 
             for segment in remaining:
-                fixed = self._reencode_segment(segment)
+                fixed = self._fix_segment_timestamps(segment)
                 self._merge_single_segment(fixed if fixed else segment)
 
         except Exception as e:
