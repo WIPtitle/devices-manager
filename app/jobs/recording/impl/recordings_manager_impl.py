@@ -302,50 +302,55 @@ class RecordingsManagerImpl(RecordingsManager):
 
                     if segments:
                         print(f"Startup recovery: merging {len(segments)} segments for recording {recording.id}")
-                        for segment in segments:
-                            # Remux segment to fix VFR timestamp issues
-                            fixed = self._fix_segment_timestamps(segment)
-                            use_segment = fixed if fixed else segment
 
-                            if not os.path.exists(file_path):
-                                os.rename(use_segment, file_path)
+                        # Include existing final file if present
+                        all_parts = []
+                        if final_exists:
+                            all_parts.append(file_path)
+                        all_parts.extend(segments)
+
+                        if len(all_parts) == 1:
+                            if not final_exists:
+                                os.rename(all_parts[0], file_path)
+                        else:
+                            concat_list = os.path.join(
+                                os.path.dirname(file_path),
+                                f".concat_recovery_{time.time()}.txt"
+                            )
+                            with open(concat_list, 'w') as f:
+                                for part in all_parts:
+                                    f.write(f"file '{os.path.abspath(part)}'\n")
+
+                            temp_path = file_path + ".tmp.mkv"
+                            cmd = [
+                                "ffmpeg", "-y",
+                                "-fflags", "+genpts",
+                                "-f", "concat", "-safe", "0",
+                                "-i", concat_list,
+                                "-c", "copy",
+                                "-loglevel", "error",
+                                temp_path
+                            ]
+                            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                            try:
+                                os.remove(concat_list)
+                            except:
+                                pass
+
+                            if result.returncode == 0:
+                                os.replace(temp_path, file_path)
+                                for segment in segments:
+                                    try:
+                                        os.remove(segment)
+                                    except:
+                                        pass
                             else:
-                                temp_path = file_path + ".tmp.mkv"
-                                concat_list = os.path.join(
-                                    os.path.dirname(file_path),
-                                    f".concat_recovery_{time.time()}.txt"
-                                )
-                                with open(concat_list, 'w') as f:
-                                    f.write(f"file '{os.path.abspath(file_path)}'\n")
-                                    f.write(f"file '{os.path.abspath(use_segment)}'\n")
-
-                                cmd = [
-                                    "ffmpeg", "-y",
-                                    "-f", "concat", "-safe", "0",
-                                    "-i", concat_list,
-                                    "-c", "copy",
-                                    "-loglevel", "error",
-                                    temp_path
-                                ]
-                                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
+                                print(f"Startup recovery: merge failed for recording {recording.id}: {result.stderr.decode()}")
                                 try:
-                                    os.remove(concat_list)
+                                    os.remove(temp_path)
                                 except:
                                     pass
-
-                                if result.returncode == 0:
-                                    os.replace(temp_path, file_path)
-                                    try:
-                                        os.remove(use_segment)
-                                    except:
-                                        pass
-                                else:
-                                    print(f"Startup recovery: merge failed for {segment}: {result.stderr.decode()}")
-                                    try:
-                                        os.remove(temp_path)
-                                    except:
-                                        pass
 
                     self.recording_repository.set_stopped(recording)
                     print(f"Startup recovery: completed recording {recording.id}")
@@ -354,34 +359,6 @@ class RecordingsManagerImpl(RecordingsManager):
                     print(f"Startup recovery: error recovering recording {recording.id}: {e}")
 
         threading.Thread(target=recovery_loop, daemon=True).start()
-
-    @staticmethod
-    def _fix_segment_timestamps(segment_path):
-        """Remux a segment to fix VFR timestamp issues for browser compatibility (no re-encoding)."""
-        fixed_path = segment_path + ".fixed.mkv"
-        try:
-            cmd = [
-                "ffmpeg", "-y",
-                "-fflags", "+genpts",
-                "-i", segment_path,
-                "-c", "copy",
-                "-loglevel", "error",
-                fixed_path
-            ]
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if result.returncode == 0:
-                try:
-                    os.remove(segment_path)
-                except:
-                    pass
-                print(f"Fixed timestamps for segment: {os.path.basename(segment_path)}")
-                return fixed_path
-            else:
-                print(f"Timestamp fix failed for {segment_path}: {result.stderr.decode()}")
-                return None
-        except Exception as e:
-            print(f"Error fixing segment timestamps {segment_path}: {e}")
-            return None
 
     def get_frame_buffer(self, camera_ip: str):
         with self.lock:
