@@ -41,7 +41,15 @@ class AlarmManagerImpl(AlarmManager):
             # Disable motion detection warnings immediately
             if self.detection_manager:
                 self.detection_manager.on_group_leave_listening()
-            self.alarm_events_client.notify_alarm_waiting(started=True)
+
+            try:
+                self.alarm_events_client.notify_alarm_waiting(
+                    started=True,
+                    duration=group.wait_to_fire_alarm + 5
+                )
+            except Exception as e:
+                print(f"Warning: failed to start waiting audio for sensor trigger: {e}")
+
             delay_execution(
                 func=self.trigger_alarm,
                 args=(sensor.name, group.id),
@@ -54,6 +62,12 @@ class AlarmManagerImpl(AlarmManager):
 
         # Check if still listening
         if group.status != DeviceGroupStatus.LISTENING:
+            # Cleanup: stop waiting audio and reset alarm flag
+            try:
+                self.alarm_events_client.notify_alarm_waiting(started=False)
+            except Exception:
+                pass
+            self.alarm = False
             return
 
         group.status = DeviceGroupStatus.ALARM
@@ -69,7 +83,7 @@ class AlarmManagerImpl(AlarmManager):
             func=self.stop_alarm,
             delay_seconds=self.alarm_recording_duration)
 
-        self.alarm_events_client.notify_sensor_alarm(sensor_name)
+        self.alarm_events_client.notify_sensor_alarm(sensor_name, duration=self.alarm_recording_duration)
 
         # Start recording for cameras that are not always recording
         for camera in self.camera_repository.find_all():

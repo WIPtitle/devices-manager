@@ -14,7 +14,7 @@ from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.sensor.sensor_repository import SensorRepository
 from app.services.device_group.device_group_service import DeviceGroupService
-from app.utils.delayed_execution import delay_execution
+from app.utils.delayed_execution import delay_execution, CancellableExecution
 from app.utils.event_manager import event_manager
 
 
@@ -34,9 +34,18 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         self.alarm_events_client = alarm_events_client
         self.detection_manager = detection_manager
         self.notification_scheduler = notification_scheduler
+        self._pending_start_handles: dict[int, CancellableExecution] = {}
 
         # Publish initial state for all existing groups and recover detection
         for group in self.device_group_repository.find_all_devices_groups():
+            # If restarted during WAITING_TO_START, promote to LISTENING (wait period has surely passed)
+            if group.status == DeviceGroupStatus.WAITING_TO_START_LISTENING:
+                print(f"Startup recovery: promoting group {group.name} from WAITING_TO_START_LISTENING to LISTENING")
+                group.status = DeviceGroupStatus.LISTENING
+                self.device_group_repository.update_device_group(group)
+                sensors = self.device_group_repository.find_device_group_sensors_by_id(group.id)
+                self.sensor_repository.update_listening_batch(sensors, True)
+
             event_manager.publish_device_group_event_sync(group.id, group.status.value)
             if group.status in (DeviceGroupStatus.LISTENING, DeviceGroupStatus.ALARM):
                 group_cameras = self.device_group_repository.find_device_group_cameras_by_id(group.id)
@@ -130,26 +139,50 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         if not self.device_group_repository.are_all_groups_idle():
             raise BadRequestException("Not all groups are idle, can't start listening")
 
-        self.alarm_events_client.notify_alarm_waiting(started=True)
-        delay_execution(func=self.do_start_listening, args=(group_id,), delay_seconds=group.wait_to_start_alarm)
-
+        # 1. Persist to DB first — this is the operation that can fail
         group.status = DeviceGroupStatus.WAITING_TO_START_LISTENING
         updated_group = self.device_group_repository.update_device_group(group)
 
-        # Publish status change event
+        # 2. Publish status change event
         event_manager.publish_device_group_event_sync(group_id, DeviceGroupStatus.WAITING_TO_START_LISTENING.value)
+
+        # 3. Schedule transition to LISTENING
+        handle = delay_execution(func=self.do_start_listening, args=(group_id,), delay_seconds=group.wait_to_start_alarm)
+        self._pending_start_handles[group_id] = handle
+
+        # 4. Start audio last — failure here does not block the operation
+        try:
+            self.alarm_events_client.notify_alarm_waiting(
+                started=True,
+                duration=group.wait_to_start_alarm + 5
+            )
+        except Exception as e:
+            print(f"Warning: failed to start waiting audio: {e}")
 
         return updated_group
 
     def stop_listening(self, group_id: int) -> DeviceGroup:
         group = self.get_device_group_by_id(group_id)
-        if group.status != DeviceGroupStatus.LISTENING and group.status != DeviceGroupStatus.ALARM:
-            raise BadRequestException("Group is not listening or in alarm")
+        allowed = {DeviceGroupStatus.LISTENING, DeviceGroupStatus.ALARM, DeviceGroupStatus.WAITING_TO_START_LISTENING}
+        if group.status not in allowed:
+            raise BadRequestException("Group is not listening, in alarm, or waiting to start")
+
+        # Cancel pending start if still waiting
+        pending = self._pending_start_handles.pop(group_id, None)
+        if pending:
+            pending.cancel()
+
         self.do_stop_listening(group_id)
         return self.get_device_group_by_id(group_id)
 
     def do_start_listening(self, group_id: int):
+        self._pending_start_handles.pop(group_id, None)
         group = self.device_group_repository.find_device_group_by_id(group_id)
+
+        # Guard: if the group was stopped while waiting, do nothing
+        if group.status != DeviceGroupStatus.WAITING_TO_START_LISTENING:
+            return
+
         group.status = DeviceGroupStatus.LISTENING
         self.device_group_repository.update_device_group(group)
 
