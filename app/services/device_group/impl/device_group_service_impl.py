@@ -201,10 +201,14 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
         self._audio_fire_and_forget(self.alarm_events_client.notify_alarm_waiting, started=False)
 
-        # Start motion detection only on cameras assigned to this group
+        # Start motion detection in background (heavy operation)
         group_cameras = self.device_group_repository.find_device_group_cameras_by_id(group_id)
         camera_ips = [c.ip for c in group_cameras]
-        self.detection_manager.on_group_start_listening(group_id, camera_ips)
+        threading.Thread(
+            target=self.detection_manager.on_group_start_listening,
+            args=(group_id, camera_ips),
+            daemon=True
+        ).start()
 
     def do_stop_listening(self, group_id: int):
         sensors = self.get_device_group_sensors_by_id(group_id)
@@ -218,12 +222,15 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         # Cancel pending notifications for this group (alarm stopped = normal re-entry)
         self.notification_scheduler.cancel_group(group_id)
 
-        # Stop motion detection on all cameras
-        self.detection_manager.on_all_groups_idle()
-
         group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.IDLE
         self.device_group_repository.update_device_group(group)
 
         # Publish status change event
         event_manager.publish_device_group_event_sync(group_id, DeviceGroupStatus.IDLE.value)
+
+        # Stop motion detection in background (heavy operation)
+        threading.Thread(
+            target=self.detection_manager.on_all_groups_idle,
+            daemon=True
+        ).start()
