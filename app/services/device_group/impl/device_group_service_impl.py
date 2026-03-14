@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from typing import Sequence
 
 from app.clients.alarm_events_client import AlarmEventsClient
@@ -56,6 +57,15 @@ class DeviceGroupServiceImpl(DeviceGroupService):
                 # If in ALARM state, detection workers are running but warnings must be disabled
                 if group.status == DeviceGroupStatus.ALARM:
                     self.detection_manager.on_group_leave_listening()
+
+    @staticmethod
+    def _audio_fire_and_forget(fn, **kwargs):
+        def _call():
+            try:
+                fn(**kwargs)
+            except Exception as e:
+                print(f"Warning: audio call failed: {e}")
+        threading.Thread(target=_call, daemon=True).start()
 
     def create_device_group(self, device_group: DeviceGroup) -> DeviceGroup:
         if device_group.wait_to_fire_alarm > 120:
@@ -150,14 +160,11 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         handle = delay_execution(func=self.do_start_listening, args=(group_id,), delay_seconds=group.wait_to_start_alarm)
         self._pending_start_handles[group_id] = handle
 
-        # 4. Start audio last — failure here does not block the operation
-        try:
-            self.alarm_events_client.notify_alarm_waiting(
-                started=True,
-                duration=group.wait_to_start_alarm + 5
-            )
-        except Exception as e:
-            print(f"Warning: failed to start waiting audio: {e}")
+        # 4. Start audio (fire-and-forget)
+        self._audio_fire_and_forget(
+            self.alarm_events_client.notify_alarm_waiting,
+            started=True, duration=group.wait_to_start_alarm + 5
+        )
 
         return updated_group
 
@@ -192,7 +199,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         sensors = self.get_device_group_sensors_by_id(group_id)
         self.sensor_repository.update_listening_batch(sensors, True)
 
-        self.alarm_events_client.notify_alarm_waiting(started=False)
+        self._audio_fire_and_forget(self.alarm_events_client.notify_alarm_waiting, started=False)
 
         # Start motion detection only on cameras assigned to this group
         group_cameras = self.device_group_repository.find_device_group_cameras_by_id(group_id)
@@ -206,7 +213,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         self.alarm_manager.stop_alarm()
 
         # Stop all audio (warning, waiting, alarm) regardless of current state
-        self.alarm_events_client.notify_alarm_stopped()
+        self._audio_fire_and_forget(self.alarm_events_client.notify_alarm_stopped)
 
         # Cancel pending notifications for this group (alarm stopped = normal re-entry)
         self.notification_scheduler.cancel_group(group_id)
