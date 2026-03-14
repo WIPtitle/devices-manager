@@ -163,7 +163,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         # 4. Start audio (fire-and-forget)
         self._audio_fire_and_forget(
             self.alarm_events_client.notify_alarm_waiting,
-            started=True, duration=group.wait_to_start_alarm + 5
+            started=True, duration=group.wait_to_start_alarm
         )
 
         return updated_group

@@ -5,7 +5,7 @@ class AlarmEventsClient:
     def __init__(self):
         self.local_audio_hostname = "local-audio-manager"
         self.notifications_hostname = "notifications-manager"
-        self.timeout = 20.0
+        self._client = httpx.Client(timeout=20.0)
 
     def notify_sensor_alarm(self, sensor_name: str, duration: int = None):
         """Notify both audio and notifications services about a sensor alarm."""
@@ -15,43 +15,38 @@ class AlarmEventsClient:
     def notify_alarm_waiting(self, started: bool, duration: int = None):
         """Notify audio service about alarm waiting state."""
         url = f"http://{self.local_audio_hostname}:8000/internal/alarm/waiting"
-        with httpx.Client(timeout=self.timeout) as client:
-            body = {"started": started}
-            if duration is not None:
-                body["duration"] = duration
-            response = client.post(url, json=body)
-            response.raise_for_status()
+        body = {"started": started}
+        if duration is not None:
+            body["duration"] = duration
+        response = self._client.post(url, json=body)
+        response.raise_for_status()
 
     def notify_alarm_stopped(self):
         """Notify audio service that alarm has stopped."""
         url = f"http://{self.local_audio_hostname}:8000/internal/alarm/stopped"
-        with httpx.Client(timeout=self.timeout) as client:
-            response = client.post(url)
-            response.raise_for_status()
+        response = self._client.post(url)
+        response.raise_for_status()
 
     def _notify_audio_sensor_alarm(self, sensor_name: str, duration: int = None):
         """Notify audio service about sensor alarm."""
         url = f"http://{self.local_audio_hostname}:8000/internal/alarm/sensor-alarm"
-        with httpx.Client(timeout=self.timeout) as client:
-            body = {"sensor_name": sensor_name}
-            if duration is not None:
-                body["duration"] = duration
-            response = client.post(url, json=body)
-            response.raise_for_status()
+        body = {"sensor_name": sensor_name}
+        if duration is not None:
+            body["duration"] = duration
+        response = self._client.post(url, json=body)
+        response.raise_for_status()
 
     def _notify_notifications_sensor_alarm(self, sensor_name: str):
         """Notify notifications service about sensor alarm."""
         url = f"http://{self.notifications_hostname}:8000/internal/alarm/sensor-alarm"
-        with httpx.Client(timeout=self.timeout) as client:
-            response = client.post(url, json={"sensor_name": sensor_name})
-            response.raise_for_status()
+        response = self._client.post(url, json={"sensor_name": sensor_name})
+        response.raise_for_status()
 
     def notify_motion_warning_audio(self, camera_name: str):
         """Notify audio service about motion warning (immediate sound)."""
         audio_url = f"http://{self.local_audio_hostname}:8000/internal/alarm/motion-warning"
         try:
-            with httpx.Client(timeout=self.timeout) as client:
-                client.post(audio_url, json={"camera_name": camera_name})
+            self._client.post(audio_url, json={"camera_name": camera_name})
         except Exception as e:
             print(f"Warning: failed to notify audio for motion warning: {e}")
 
@@ -62,7 +57,6 @@ class AlarmEventsClient:
             files = {}
             if snapshot_jpeg:
                 files["snapshot"] = ("snapshot.jpg", snapshot_jpeg, "image/jpeg")
-            with httpx.Client(timeout=self.timeout) as client:
-                client.post(notif_url, data={"camera_name": camera_name}, files=files)
+            self._client.post(notif_url, data={"camera_name": camera_name}, files=files)
         except Exception as e:
             print(f"Warning: failed to save motion warning notification: {e}")

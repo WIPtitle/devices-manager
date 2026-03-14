@@ -45,7 +45,7 @@ class AlarmManagerImpl(AlarmManager):
             try:
                 self.alarm_events_client.notify_alarm_waiting(
                     started=True,
-                    duration=group.wait_to_fire_alarm + 5
+                    duration=group.wait_to_fire_alarm
                 )
             except Exception as e:
                 print(f"Warning: failed to start waiting audio for sensor trigger: {e}")
