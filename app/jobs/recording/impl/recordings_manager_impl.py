@@ -6,7 +6,7 @@ import threading
 import time
 from threading import Lock, Event
 
-from app.jobs.recording.impl.recording_thread import RecordingThread
+from app.jobs.recording.impl.recording_thread import FrameBuffer, RecordingThread
 from app.jobs.recording.recordings_manager import RecordingsManager
 from app.models.disk_usage import DiskUsage
 from app.models.recording import Recording, get_recordings_path, get_alarm_recordings_path, RecordingInputDto
@@ -28,6 +28,7 @@ class RecordingsManagerImpl(RecordingsManager):
         self.recording_repository = recording_repository
         self.active_recordings = {}
         self.active_threads = {}
+        self._frame_buffers = {}
         self.lock = Lock()
         self._cleanup_lock = Lock()
         self._scheduler_stop_event = threading.Event()
@@ -83,8 +84,15 @@ class RecordingsManagerImpl(RecordingsManager):
             duration = self.alarm_recording_duration
             segment_duration = duration // 20
 
+        frame_buffer = None
+        if camera.always_recording:
+            if camera.ip not in self._frame_buffers:
+                self._frame_buffers[camera.ip] = FrameBuffer()
+            frame_buffer = self._frame_buffers[camera.ip]
+
         thread = RecordingThread(
             camera, recording, segment_duration, self.on_recording_completed,
+            frame_buffer=frame_buffer,
         )
         thread.start()
 
@@ -361,11 +369,7 @@ class RecordingsManagerImpl(RecordingsManager):
         threading.Thread(target=recovery_loop, daemon=True).start()
 
     def get_frame_buffer(self, camera_ip: str):
-        with self.lock:
-            thread = self.active_threads.get(camera_ip)
-            if thread and thread.frame_buffer is not None:
-                return thread.frame_buffer
-        return None
+        return self._frame_buffers.get(camera_ip)
 
     def _get_base_recording_name(self, filename: str) -> str:
         """Extract base recording name from filename (handles segments like file_000.mkv)."""

@@ -11,12 +11,35 @@ from app.models.camera import Camera
 from app.models.recording import Recording
 
 
+class FrameBuffer:
+    """Thread-safe single-frame buffer with sequence counter for change detection."""
+    def __init__(self):
+        self._buffer = collections.deque(maxlen=1)
+        self._seq = 0
+
+    def put(self, frame):
+        self._buffer.append(frame)
+        self._seq += 1
+
+    @property
+    def seq(self):
+        return self._seq
+
+    def get_latest(self):
+        """Returns the latest frame, or None if empty."""
+        try:
+            return self._buffer[-1]
+        except IndexError:
+            return None
+
+
 class RecordingThread(threading.Thread):
     DETECTION_FPS = 1
     DETECTION_WIDTH = 640
     DETECTION_HEIGHT = 360
 
-    def __init__(self, camera: 'Camera', recording: 'Recording', segment_duration: int, on_completion_callback):
+    def __init__(self, camera: 'Camera', recording: 'Recording', segment_duration: int, on_completion_callback,
+                 frame_buffer: 'FrameBuffer | None' = None):
         super().__init__()
         self.camera = camera
         self.recording = recording
@@ -33,7 +56,12 @@ class RecordingThread(threading.Thread):
         # Detection frame buffer (shared with MotionDetectionWorker)
         # Always enabled for always_recording cameras so detection can be toggled at runtime
         self.detection_enabled = camera.always_recording
-        self.frame_buffer = collections.deque(maxlen=1) if self.detection_enabled else None
+        if frame_buffer is not None and self.detection_enabled:
+            self.frame_buffer = frame_buffer
+        elif self.detection_enabled:
+            self.frame_buffer = FrameBuffer()
+        else:
+            self.frame_buffer = None
 
         base_name = os.path.splitext(self.file_path)[0]
         extension = os.path.splitext(self.file_path)[1] or '.mkv'
@@ -218,7 +246,7 @@ class RecordingThread(threading.Thread):
                 frame = np.frombuffer(raw, dtype=np.uint8).reshape(
                     (self.DETECTION_HEIGHT, self.DETECTION_WIDTH, 3)
                 )
-                self.frame_buffer.append(frame)
+                self.frame_buffer.put(frame)
             except Exception:
                 break
 

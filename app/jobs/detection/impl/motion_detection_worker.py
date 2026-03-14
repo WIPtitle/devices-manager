@@ -117,20 +117,18 @@ class MotionDetectionWorker:
 
     def _run(self):
         frame_count = 0
-        last_frame_id = None
+        last_seq = -1
         while self.running:
-            try:
-                frame = self.frame_buffer[-1]
-            except IndexError:
+            frame = self.frame_buffer.get_latest()
+            if frame is None:
                 time.sleep(1)
                 continue
 
-            # Check if frame is actually updating
-            frame_id = id(frame)
-            if frame_id == last_frame_id:
+            current_seq = self.frame_buffer.seq
+            if current_seq == last_seq:
                 time.sleep(1)
                 continue
-            last_frame_id = frame_id
+            last_seq = current_seq
             frame_count += 1
 
             if frame_count == 1:
