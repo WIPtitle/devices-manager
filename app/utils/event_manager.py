@@ -35,6 +35,10 @@ class EventManager:
         self._sensor_subscribers: Dict[str, List[asyncio.Queue]] = {}  # Changed to str for sensor IDs
         self._device_group_subscribers: Dict[int, List[asyncio.Queue]] = {}
         self._lock = asyncio.Lock()
+        self._main_loop: asyncio.AbstractEventLoop | None = None
+
+    def set_main_loop(self, loop: asyncio.AbstractEventLoop):
+        self._main_loop = loop
 
     async def subscribe_to_sensor(self, sensor_id: str) -> asyncio.Queue:
         """Subscribe to sensor state changes"""
@@ -114,29 +118,24 @@ class EventManager:
                     except asyncio.QueueFull:
                         print(f"Queue full for device group {group_id} subscriber")
 
-    def publish_sensor_event_sync(self, sensor_id: str, state: int):
-        """Synchronous wrapper for publishing sensor events from non-async contexts"""
+    def _schedule_coroutine(self, coro):
+        """Schedule a coroutine from any thread, delivering it to the main event loop."""
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(self.publish_sensor_event(sensor_id, state))
-            else:
-                loop.run_until_complete(self.publish_sensor_event(sensor_id, state))
+            asyncio.get_running_loop()
+            # We're inside the event loop thread — just create a task
+            asyncio.create_task(coro)
         except RuntimeError:
-            # If there's no event loop, create one
-            asyncio.run(self.publish_sensor_event(sensor_id, state))
+            # We're in a background thread — dispatch to the main loop
+            if self._main_loop is not None and self._main_loop.is_running():
+                asyncio.run_coroutine_threadsafe(coro, self._main_loop)
+
+    def publish_sensor_event_sync(self, sensor_id: str, state: int):
+        """Synchronous wrapper for publishing sensor events from any thread."""
+        self._schedule_coroutine(self.publish_sensor_event(sensor_id, state))
 
     def publish_device_group_event_sync(self, group_id: int, status: str):
-        """Synchronous wrapper for publishing device group events from non-async contexts"""
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(self.publish_device_group_event(group_id, status))
-            else:
-                loop.run_until_complete(self.publish_device_group_event(group_id, status))
-        except RuntimeError:
-            # If there's no event loop, create one
-            asyncio.run(self.publish_device_group_event(group_id, status))
+        """Synchronous wrapper for publishing device group events from any thread."""
+        self._schedule_coroutine(self.publish_device_group_event(group_id, status))
 
 
 # Global instance

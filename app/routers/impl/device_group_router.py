@@ -1,3 +1,4 @@
+import asyncio
 from typing import Sequence
 
 from fastapi import Response, Request
@@ -110,7 +111,7 @@ class DeviceGroupRouter(RouterWrapper):
             pin = body.get("pin")
             if not await self.auth_client.check_pin(token=token, pin=pin):
                 raise AuthenticationException("Incorrect PIN")
-            return self.device_group_service.start_listening(group_id)
+            return await asyncio.to_thread(self.device_group_service.start_listening, group_id)
 
         @self.router.post("/{group_id}/stop-listening")
         async def stop_listening(request: Request, group_id: int):
@@ -122,4 +123,4 @@ class DeviceGroupRouter(RouterWrapper):
             pin = body.get("pin")
             if not await self.auth_client.check_pin(token=token, pin=pin):
                 raise AuthenticationException("Incorrect PIN")
-            return self.device_group_service.stop_listening(group_id)
+            return await asyncio.to_thread(self.device_group_service.stop_listening, group_id)
