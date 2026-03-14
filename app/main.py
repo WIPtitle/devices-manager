@@ -1,3 +1,4 @@
+import asyncio
 from typing import List
 
 from fastapi import FastAPI
@@ -10,6 +11,7 @@ from app.routers.impl.sensor_router import SensorRouter
 from app.routers.impl.recording_router import RecordingRouter
 from app.routers.impl.system_config_router import SystemConfigRouter
 from app.routers.router_wrapper import RouterWrapper
+from app.utils.event_manager import event_manager
 
 exception_handlers = get_exception_handlers()
 routers: List[RouterWrapper] = [
@@ -22,6 +24,12 @@ routers: List[RouterWrapper] = [
 ]
 
 app = FastAPI()
+
+
+@app.on_event("startup")
+async def _register_event_loop():
+    event_manager.set_main_loop(asyncio.get_running_loop())
+
 
 for exc, handler in exception_handlers:
     app.add_exception_handler(exc, handler)
