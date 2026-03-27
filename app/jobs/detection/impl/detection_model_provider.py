@@ -1,6 +1,7 @@
 import os
 import threading
 
+import numpy as np
 from ultralytics import YOLO
 
 
@@ -42,4 +43,8 @@ class DetectionModelProvider:
         print(f"Loading YOLO model: {model_name}")
         cls._model = YOLO(f"{model_name}.pt")
         cls._model_name = model_name
-        print(f"YOLO model {model_name} loaded successfully")
+        # Warmup: run a dummy inference to initialize CUDA/GPU memory and compile kernels.
+        # Without this, the first real detection freezes for 3-4 seconds.
+        print(f"Warming up YOLO model {model_name}...")
+        cls._model(np.zeros((360, 640, 3), dtype=np.uint8), verbose=False)
+        print(f"YOLO model {model_name} loaded and warmed up")
