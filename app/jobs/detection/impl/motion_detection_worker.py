@@ -1,6 +1,5 @@
 import json
 import threading
-import time
 from datetime import datetime, timedelta
 
 import cv2
@@ -121,12 +120,12 @@ class MotionDetectionWorker:
         while self.running:
             frame = self.frame_buffer.get_latest()
             if frame is None:
-                time.sleep(1)
+                self.frame_buffer.wait_for_new_frame(timeout=1.0)
                 continue
 
             current_seq = self.frame_buffer.seq
             if current_seq == last_seq:
-                time.sleep(1)
+                self.frame_buffer.wait_for_new_frame(timeout=1.0)
                 continue
             last_seq = current_seq
             frame_count += 1
@@ -153,7 +152,7 @@ class MotionDetectionWorker:
             if self.prev_gray is None:
                 self.prev_gray = gray
                 print(f"[Detection] {self.camera.ip}: baseline frame stored, waiting for next")
-                time.sleep(1)
+                self.frame_buffer.wait_for_new_frame(timeout=1.0)
                 continue
 
             # Frame-to-frame diff (previous frame = background)
@@ -169,7 +168,7 @@ class MotionDetectionWorker:
                 total_pixels = frame.shape[0] * frame.shape[1]
 
             if total_pixels == 0:
-                time.sleep(1)
+                self.frame_buffer.wait_for_new_frame(timeout=1.0)
                 continue
 
             motion_ratio = motion_pixels / total_pixels
@@ -178,7 +177,7 @@ class MotionDetectionWorker:
                 print(f"[Detection] {self.camera.ip}: alive, frame #{frame_count}, motion_ratio={motion_ratio:.6f}, threshold={self.threshold:.6f}")
 
             if motion_ratio <= self.threshold:
-                time.sleep(1)
+                self.frame_buffer.wait_for_new_frame(timeout=1.0)
                 continue
 
             print(f"[Detection] {self.camera.ip}: motion detected (ratio={motion_ratio:.4f}, threshold={self.threshold:.6f})")
@@ -192,14 +191,14 @@ class MotionDetectionWorker:
                 filtered = [box for box in all_boxes if self._box_in_roi(box[0], box[1], box[2], box[3])]
                 if len(filtered) == 0:
                     print(f"[Detection] {self.camera.ip}: YOLO found {len(all_boxes)} person(s) but none in ROI, skipping")
-                    time.sleep(1)
+                    self.frame_buffer.wait_for_new_frame(timeout=1.0)
                     continue
                 print(f"[Detection] {self.camera.ip}: YOLO found {len(filtered)} person(s) in ROI")
                 detection_boxes = np.array(filtered)
 
             # Check if warnings are still enabled (only in LISTENING state)
             if self.detection_manager and not self.detection_manager.is_warning_enabled():
-                time.sleep(1)
+                self.frame_buffer.wait_for_new_frame(timeout=1.0)
                 continue
 
             # Global cooldown check
@@ -208,7 +207,7 @@ class MotionDetectionWorker:
                 if (MotionDetectionWorker._global_last_warning
                         and (now - MotionDetectionWorker._global_last_warning) < self.cooldown):
                     print(f"[Detection] {self.camera.ip}: in global cooldown, skipping")
-                    time.sleep(1)
+                    self.frame_buffer.wait_for_new_frame(timeout=1.0)
                     continue
                 MotionDetectionWorker._global_last_warning = now
 
@@ -251,4 +250,4 @@ class MotionDetectionWorker:
             except Exception as e:
                 print(f"[Detection] {self.camera.ip}: error scheduling notification: {e}")
 
-            time.sleep(1)
+            self.frame_buffer.wait_for_new_frame(timeout=1.0)

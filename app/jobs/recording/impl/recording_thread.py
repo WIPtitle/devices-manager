@@ -12,14 +12,16 @@ from app.models.recording import Recording
 
 
 class FrameBuffer:
-    """Thread-safe single-frame buffer with sequence counter for change detection."""
+    """Thread-safe single-frame buffer with sequence counter and event signaling."""
     def __init__(self):
         self._buffer = collections.deque(maxlen=1)
         self._seq = 0
+        self._event = threading.Event()
 
     def put(self, frame):
         self._buffer.append(frame)
         self._seq += 1
+        self._event.set()
 
     @property
     def seq(self):
@@ -32,9 +34,14 @@ class FrameBuffer:
         except IndexError:
             return None
 
+    def wait_for_new_frame(self, timeout=1.0):
+        """Block until a new frame arrives or timeout expires."""
+        self._event.wait(timeout=timeout)
+        self._event.clear()
+
 
 class RecordingThread(threading.Thread):
-    DETECTION_FPS = 1
+    DETECTION_FPS = 3
     DETECTION_WIDTH = 640
     DETECTION_HEIGHT = 360
 
