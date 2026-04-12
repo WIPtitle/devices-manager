@@ -52,7 +52,7 @@ class DeviceGroupRouter(RouterWrapper):
             return self.device_group_service.get_device_group_by_id(group_id).status
 
         @self.router.get("/{group_id}/status/stream")
-        def get_device_group_status_stream(group_id: int) -> StreamingResponse:
+        async def get_device_group_status_stream(group_id: int) -> StreamingResponse:
             return StreamingResponse(self.device_group_service.get_device_group_status_stream_by_id(group_id),
                                    media_type="text/event-stream")
 

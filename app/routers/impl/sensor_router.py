@@ -63,6 +63,6 @@ class SensorRouter(RouterWrapper):
             return {"status": "HIGH" if status == 1 else "LOW"}
 
         @self.router.get("/{sensor_id}/status/stream")
-        def get_sensor_status_stream(sensor_id: str) -> StreamingResponse:
+        async def get_sensor_status_stream(sensor_id: str) -> StreamingResponse:
             return StreamingResponse(self.sensor_service.get_sensor_status_stream_by_id(sensor_id),
                                      media_type="text/event-stream")
