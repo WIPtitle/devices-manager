@@ -67,8 +67,8 @@ class RecordingServiceImpl(RecordingService):
     def get_all(self) -> Sequence[Recording]:
         return self.recording_repository.find_all()
 
-    def get_all_paginated(self, offset: int, recording_type: RecordingType) -> Sequence[Recording]:
-        return self.recording_repository.find_all_paginated(offset=offset, recording_type=recording_type)
+    def get_all_paginated(self, offset: int, recording_type: RecordingType, camera_ip: str | None = None) -> Sequence[Recording]:
+        return self.recording_repository.find_all_paginated(offset=offset, recording_type=recording_type, camera_ip=camera_ip)
 
     def stream(self, request: Request, rec_id: int):
         recording = self.recording_repository.find_by_id(rec_id)

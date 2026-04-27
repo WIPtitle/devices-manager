@@ -31,7 +31,7 @@ class RecordingRepository(ABC):
         pass
 
     @abstractmethod
-    def find_all_paginated(self, offset: int, recording_type: RecordingType) -> Sequence[Recording]:
+    def find_all_paginated(self, offset: int, recording_type: RecordingType, camera_ip: str | None = None) -> Sequence[Recording]:
         pass
 
     @abstractmethod

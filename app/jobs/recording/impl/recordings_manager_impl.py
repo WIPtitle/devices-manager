@@ -16,10 +16,14 @@ from app.utils.delayed_execution import delay_execution
 
 
 def delete_file(file_path):
-    if os.path.exists(file_path):
+    try:
         os.remove(file_path)
         return os.path.basename(file_path)
-    return None
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        print(f"Error deleting file {file_path}: {e}")
+        return None
 
 
 class RecordingsManagerImpl(RecordingsManager):
@@ -60,17 +64,20 @@ class RecordingsManagerImpl(RecordingsManager):
 
             self.active_recordings[recording.camera_ip] = recording
 
-        usage = DiskUsage.from_path(get_recordings_path())
-        threshold = 0.10
-        while usage.free / usage.total < threshold:
-            oldest_recording = self.recording_repository.find_and_delete_oldest_completed()
-            if oldest_recording is not None:
-                file_path = os.path.join(oldest_recording.path, oldest_recording.name)
-                delete_file(file_path)
-                self.trigger_orphan_files_cleanup()
-                usage = DiskUsage.from_path(get_recordings_path())
-            else:
-                break
+        try:
+            usage = DiskUsage.from_path(get_recordings_path())
+            threshold = 0.10
+            while usage.free / usage.total < threshold:
+                oldest_recording = self.recording_repository.find_and_delete_oldest_completed()
+                if oldest_recording is not None:
+                    file_path = os.path.join(oldest_recording.path, oldest_recording.name)
+                    delete_file(file_path)
+                    self.trigger_orphan_files_cleanup()
+                    usage = DiskUsage.from_path(get_recordings_path())
+                else:
+                    break
+        except Exception as e:
+            print(f"Error during disk cleanup for {recording.camera_ip}, proceeding anyway: {e}")
 
         if camera.always_recording:
             duration = self.always_recording_duration
@@ -131,17 +138,32 @@ class RecordingsManagerImpl(RecordingsManager):
         return recording
 
     def stop_and_rotate_always_recording(self, recording: Recording):
-        camera = self.camera_repository.find_by_ip(recording.camera_ip)
+        camera_ip = recording.camera_ip
+        try:
+            camera = self.camera_repository.find_by_ip(camera_ip)
+        except Exception as e:
+            print(f"Camera {camera_ip} no longer exists, skipping rotation: {e}")
+            return
 
         with self.lock:
-            if recording.camera_ip not in self.active_recordings:
+            if camera_ip not in self.active_recordings:
                 return
-            if self.active_recordings[recording.camera_ip].id != recording.id:
+            if self.active_recordings[camera_ip].id != recording.id:
                 return
 
-        self.stop_recording(recording)
+        try:
+            self.stop_recording(recording)
+        except Exception as e:
+            print(f"Error stopping recording for {camera_ip}, forcing cleanup: {e}")
+            with self.lock:
+                self.active_recordings.pop(camera_ip, None)
+                self.active_threads.pop(camera_ip, None)
 
-        if camera.always_recording:
+        if not camera.always_recording:
+            return
+
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
                 new_recording = self.recording_repository.create(
                     Recording.from_dto(RecordingInputDto(
@@ -150,24 +172,58 @@ class RecordingsManagerImpl(RecordingsManager):
                     ))
                 )
                 self.start_recording(new_recording)
-                print(f"Rotated to new recording {new_recording.id} for always-on camera {recording.camera_ip}")
+                print(f"Rotated to new recording {new_recording.id} for always-on camera {camera_ip}")
+                return
             except Exception as e:
-                print(f"Error rotating recording for {recording.camera_ip}: {e}")
+                print(f"Error rotating recording for {camera_ip} (attempt {attempt + 1}/{max_retries}): {e}")
+                with self.lock:
+                    self.active_recordings.pop(camera_ip, None)
+                    self.active_threads.pop(camera_ip, None)
+                if attempt < max_retries - 1:
+                    time.sleep(5)
+
+        print(f"CRITICAL: Failed all {max_retries} rotation attempts for {camera_ip}, scheduling recovery")
+        delay_execution(
+            func=self._recover_camera_recording,
+            args=(camera_ip,),
+            delay_seconds=30
+        )
+
+    def _recover_camera_recording(self, camera_ip: str):
+        try:
+            camera = self.camera_repository.find_by_ip(camera_ip)
+            if not camera.always_recording:
+                return
+            if self.is_recording(camera_ip):
+                return
+            new_recording = self.recording_repository.create(
+                Recording.from_dto(RecordingInputDto(
+                    camera_ip=camera.ip,
+                    always_recording=True
+                ))
+            )
+            self.start_recording(new_recording)
+            print(f"Recovered recording for camera {camera_ip} (new recording {new_recording.id})")
+        except Exception as e:
+            print(f"CRITICAL: Recovery failed for camera {camera_ip}: {e}")
 
     def delete_recording_file(self, recording: Recording):
-        file_path = os.path.join(recording.path, recording.name)
-        delete_file(file_path)
+        try:
+            file_path = os.path.join(recording.path, recording.name)
+            delete_file(file_path)
 
-        base_name = os.path.splitext(file_path)[0]
-        extension = os.path.splitext(file_path)[1] or '.mkv'
+            base_name = os.path.splitext(file_path)[0]
+            extension = os.path.splitext(file_path)[1] or '.mkv'
 
-        max_segments = 100
-        for i in range(max_segments):
-            segment = f"{base_name}_{i:03d}{extension}"
-            if os.path.exists(segment):
-                delete_file(segment)
-            else:
-                break
+            max_segments = 100
+            for i in range(max_segments):
+                segment = f"{base_name}_{i:03d}{extension}"
+                if os.path.exists(segment):
+                    delete_file(segment)
+                else:
+                    break
+        except Exception as e:
+            print(f"Error deleting recording file for {recording.id}: {e}")
 
     def get_current_recording_by_camera_ip(self, camera_ip: str):
         with self.lock:

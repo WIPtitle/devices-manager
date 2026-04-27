@@ -76,14 +76,15 @@ class RecordingRepositoryImpl(RecordingRepository):
         return recording_db
 
 
-    def find_all_paginated(self, offset: int, recording_type: RecordingType) -> Sequence[Recording]:
+    def find_all_paginated(self, offset: int, recording_type: RecordingType, camera_ip: str | None = None) -> Sequence[Recording]:
         statement = (
             select(Recording)
             .order_by(Recording.id.desc())
             .where(Recording.type == recording_type)
-            .offset(offset)
-            .limit(20)
         )
+        if camera_ip is not None:
+            statement = statement.where(Recording.camera_ip == camera_ip)
+        statement = statement.offset(offset).limit(20)
         session = self.database_connector.get_new_session()
         result = session.exec(statement).all()
         session.close()

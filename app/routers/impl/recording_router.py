@@ -69,10 +69,11 @@ class RecordingRouter(RouterWrapper):
         async def get_all_recordings(
                 request: Request,
                 offset: int = 0,
-                rec_type: RecordingType | None = Query(default=None, alias="type")
+                rec_type: RecordingType | None = Query(default=None, alias="type"),
+                camera_ip: str | None = Query(default=None, alias="camera_ip")
         ) -> Sequence[Recording]:
             token = request.headers.get("Authorization")
             user = await self.auth_client.get_authenticated_user(token)
             if user is None or "ACCESS_RECORDINGS" not in user.permissions:
                 raise AuthorizationException("Not authorized")
-            return self.recording_service.get_all_paginated(offset=offset, recording_type=rec_type)
+            return self.recording_service.get_all_paginated(offset=offset, recording_type=rec_type, camera_ip=camera_ip)

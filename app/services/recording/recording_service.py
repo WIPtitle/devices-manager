@@ -35,7 +35,7 @@ class RecordingService(ABC):
         pass
 
     @abstractmethod
-    def get_all_paginated(self, offset: int, recording_type: RecordingType) -> Sequence[Recording]:
+    def get_all_paginated(self, offset: int, recording_type: RecordingType, camera_ip: str | None = None) -> Sequence[Recording]:
         pass
 
     @abstractmethod
