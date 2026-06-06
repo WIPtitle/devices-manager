@@ -199,7 +199,13 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         sensors = self.get_device_group_sensors_by_id(group_id)
         self.sensor_repository.update_listening_batch(sensors, True)
 
-        self._audio_fire_and_forget(self.alarm_events_client.notify_alarm_waiting, started=False)
+        # NOTE: do NOT stop the waiting audio here. It was started with
+        # duration=wait_to_start_alarm, and the MP3 player auto-stops after that
+        # duration measured from the *real* playback start (player auto_stop_timer).
+        # Sending an extra stop on this blind wall-clock timer raced the start: when
+        # the start was delayed (e.g. a slow cross-server call), the stop arrived
+        # right after it and truncated the sound to a few hundred ms. Manual disarm
+        # still force-stops everything via do_stop_listening -> notify_alarm_stopped.
 
         # Start motion detection in background (heavy operation)
         group_cameras = self.device_group_repository.find_device_group_cameras_by_id(group_id)
