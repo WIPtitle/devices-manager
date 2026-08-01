@@ -33,6 +33,12 @@ class GpioMonitorClient:
         self.thread = None
         self.loop = None
         self.monitored_pins = set()
+        # Last known state per pin (pin -> 0/1), used to dedupe SSE "gpio_change"
+        # events. On reconnect the server replays a burst of buffered events, so
+        # we only fire callbacks on an actual transition, never on a replay of the
+        # already-known state.
+        self._pin_states: Dict[int, int] = {}
+        self._pin_states_lock = threading.Lock()
 
     def start(self):
         """Start the SSE listener thread"""
@@ -102,16 +108,34 @@ class GpioMonitorClient:
             state = data.get("state")
 
             if pin is not None and state is not None:
-                # Check if pin is in callbacks (registered sensors)
-                if pin in self.callbacks:
-                    callback = self.callbacks[pin]
-                    # Run callback in a thread to avoid blocking
-                    threading.Thread(target=callback, args=(pin, state)).start()
+                # Dedupe: only treat this as a real transition if it differs from
+                # the last known state for this pin. This filters out duplicate
+                # events and reconnect replays (the server flushes a backlog of
+                # buffered events on every reconnect), which would otherwise
+                # re-fire the callback (and trigger the alarm) for a pin whose
+                # state never actually changed.
+                with self._pin_states_lock:
+                    previous_state = self._pin_states.get(pin)
+                    changed = previous_state != state
+                    self._pin_states[pin] = state
+
+                if changed:
+                    # Check if pin is in callbacks (registered sensors)
+                    if pin in self.callbacks:
+                        callback = self.callbacks[pin]
+                        # Run callback in a thread to avoid blocking
+                        threading.Thread(target=callback, args=(pin, state)).start()
 
         elif event_type == "init":
-            # Handle initial state
+            # Handle initial state. This is (re-)sent on every connect and
+            # reconnect, so use it to silently resync our per-pin state cache
+            # (no callbacks fired) rather than trusting the first post-reconnect
+            # "gpio_change" event, which may just be a replay.
             pins = data.get("pins", {})
             monitored = data.get("monitored", [])
+
+            with self._pin_states_lock:
+                self._pin_states = {int(pin): pin_state for pin, pin_state in pins.items()}
 
             # Update monitored pins
             self.monitored_pins = set(monitored)
