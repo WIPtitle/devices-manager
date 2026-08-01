@@ -134,6 +134,7 @@ class RecordingThread(threading.Thread):
                 "-analyzeduration", "5M",
                 "-probesize", "5M",
                 "-fflags", "+genpts+discardcorrupt",  # Generate PTS, discard corrupt frames
+                "-use_wallclock_as_timestamps", "1",  # override cheap cameras' broken/jumping PTS with real arrival time (fixes inflated duration + 20-min frozen sections)
                 "-i", input_url,
                 # Output options
                 "-c:v", "copy",
