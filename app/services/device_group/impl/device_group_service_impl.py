@@ -1,6 +1,7 @@
 import asyncio
 import threading
 from typing import Sequence
+from uuid import uuid4
 
 from app.clients.alarm_events_client import AlarmEventsClient
 from app.exceptions.bad_request_exception import BadRequestException
@@ -149,8 +150,10 @@ class DeviceGroupServiceImpl(DeviceGroupService):
         if not self.device_group_repository.are_all_groups_idle():
             raise BadRequestException("Not all groups are idle, can't start listening")
 
-        # 1. Persist to DB first — this is the operation that can fail
+        # 1. Persist to DB first — this is the operation that can fail.
+        # New arming session id: invalidates any still-pending fire from a previous arming.
         group.status = DeviceGroupStatus.WAITING_TO_START_LISTENING
+        group.arming_session_id = str(uuid4())
         updated_group = self.device_group_repository.update_device_group(group)
 
         # 2. Publish status change event
@@ -230,6 +233,7 @@ class DeviceGroupServiceImpl(DeviceGroupService):
 
         group = self.device_group_repository.find_device_group_by_id(group_id)
         group.status = DeviceGroupStatus.IDLE
+        group.arming_session_id = None
         self.device_group_repository.update_device_group(group)
 
         # Publish status change event

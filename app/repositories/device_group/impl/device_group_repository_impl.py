@@ -32,6 +32,7 @@ class DeviceGroupRepositoryImpl(DeviceGroupRepository):
         device_group.name = group.name
         device_group.wait_to_start_alarm = group.wait_to_start_alarm
         device_group.wait_to_fire_alarm = group.wait_to_fire_alarm
+        device_group.arming_session_id = group.arming_session_id
 
         session.commit()
         session.refresh(device_group)

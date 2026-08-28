@@ -1,0 +1,1 @@
+ALTER TABLE devicegroup ADD COLUMN IF NOT EXISTS arming_session_id VARCHAR DEFAULT NULL;

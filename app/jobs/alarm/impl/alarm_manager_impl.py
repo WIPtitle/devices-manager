@@ -7,7 +7,7 @@ from app.repositories.camera.camera_repository import CameraRepository
 from app.repositories.device_group.device_group_repository import DeviceGroupRepository
 from app.repositories.sensor.sensor_repository import SensorRepository
 from app.services.recording.recording_service import RecordingService
-from app.utils.delayed_execution import delay_execution
+from app.utils.delayed_execution import delay_execution, CancellableExecution
 from app.utils.event_manager import event_manager
 
 
@@ -26,6 +26,7 @@ class AlarmManagerImpl(AlarmManager):
         self.detection_manager: DetectionManager | None = None
         self.alarm = False
         self.alarm_recording_duration = 120
+        self._pending_fire: CancellableExecution | None = None
 
     def set_detection_manager(self, detection_manager: DetectionManager):
         self.detection_manager = detection_manager
@@ -50,19 +51,25 @@ class AlarmManagerImpl(AlarmManager):
             except Exception as e:
                 print(f"Warning: failed to start waiting audio for sensor trigger: {e}")
 
-            delay_execution(
+            # Keep the handle so a disarm can cancel this pending fire, and bind it to
+            # the arming session so a disarm+re-arm within the delay can't resurrect it.
+            self._pending_fire = delay_execution(
                 func=self.trigger_alarm,
-                args=(sensor.name, group.id),
+                args=(sensor.name, group.id, group.arming_session_id),
                 delay_seconds=group.wait_to_fire_alarm)
 
-    def trigger_alarm(self, sensor_name: str, group_id: int):
+    def trigger_alarm(self, sensor_name: str, group_id: int, session_id: str | None):
         """Trigger the alarm after the delay"""
+        self._pending_fire = None
         # Find listening group and set it to alarm
         group = self.device_group_repository.find_device_group_by_id(group_id)
 
-        # Check if still listening
-        if group.status != DeviceGroupStatus.LISTENING:
-            # Cleanup: stop waiting audio and reset alarm flag
+        # Final DB-backed guard: fire only if still listening AND still in the same arming
+        # session that scheduled this timer. Disarm clears the session (-> None); a re-arm
+        # assigns a new id — either way an old pending fire no longer matches and is dropped.
+        if group.status != DeviceGroupStatus.LISTENING or group.arming_session_id != session_id:
+            print(f"Fire discarded for group {group_id}: status={group.status.value}, "
+                  f"session_expected={session_id}, session_current={group.arming_session_id}")
             try:
                 self.alarm_events_client.notify_alarm_waiting(started=False)
             except Exception:
@@ -93,10 +100,16 @@ class AlarmManagerImpl(AlarmManager):
 
     def stop_alarm(self):
         """Stop the alarm"""
+        # Cancel any pending fire first (local + instant): this is what lets a disarm
+        # reliably beat the entry-delay timer, before any blocking network call runs.
+        if self._pending_fire is not None:
+            self._pending_fire.cancel()
+            self._pending_fire = None
+
         if self.alarm:
             self.alarm_events_client.notify_alarm_stopped()
 
             for camera in self.camera_repository.find_all():
                 if not camera.always_recording:
                     self.recording_service.stop_by_camera_ip(camera.ip)
-            self.alarm = False
+        self.alarm = False

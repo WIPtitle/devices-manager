@@ -27,6 +27,7 @@ class DeviceGroup(SQLModel, table=True):
     wait_to_start_alarm: int
     wait_to_fire_alarm: int
     status: DeviceGroupStatus
+    arming_session_id: Optional[str] = Field(default=None)
     sensors: List[Sensor] = Relationship(link_model=DeviceGroupSensorLink)
     cameras: List[Camera] = Relationship(link_model=DeviceGroupCameraLink)
 
